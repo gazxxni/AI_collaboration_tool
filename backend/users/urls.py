@@ -28,6 +28,7 @@ delete_post,
 UserSubjectsAPIView, 
 get_user_task_stats,
 get_user_task_details,
+upload_profile_image,
 )
 
 urlpatterns = [
@@ -42,6 +43,7 @@ urlpatterns = [
     path('minutes/html2docx/<int:minutes_id>/', export_minutes_docx, name='export_minutes_docx'),
     path("profile/", get_user_profile, name="get_user_profile"),  # ✅ 사용자 프로필 API
     path("update-skill/", update_skill),  # ✅ 기술 스택 업데이트
+    path("upload-profile-image/", upload_profile_image, name="upload_profile_image"),
     path("project/data/", receive_project_data, name="receive_project_data"), # ✅ 생성된 projet_id 활용하기(ProjcetCration 및 등등)
     path("project/latest/", get_latest_project_id, name="get_latest_project_id"),  # ✅ GET 요청 받음
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),

@@ -25,6 +25,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
+from django.conf import settings
+from django.conf.urls.static import static
 
 # 기본 페이지 응답 함수
 def index(request):
@@ -43,3 +45,6 @@ urlpatterns = [
     path("api/", include("Log.urls")), 
     path("api/", include("file.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

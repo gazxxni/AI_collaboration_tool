@@ -63,7 +63,7 @@ function Login() {
             }}
           >
             <div className="Login_container">
-              <img className="Login_logoimage" alt="teamlogo" src="/teamlogo.jpg" />
+              <img className="Login_logoimage" alt="teamlogo" src="/testlogo.png" />
             </div>
             <form onSubmit={handleSubmit}>
               <div className="Login_input">

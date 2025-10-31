@@ -18,6 +18,10 @@ from django.http import HttpResponse
 from html2docx import html2docx
 from docx import Document
 from docx.oxml.ns import qn
+import os
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 
 @method_decorator(csrf_exempt, name='dispatch')  # CSRF 보호 비활성화
@@ -123,6 +127,29 @@ def get_users_list(request):
     users_list = [{"user_id": row[0], "name": row[1]} for row in users]
     return JsonResponse(users_list, safe=False,json_dumps_params={'ensure_ascii': False})
 
+# def get_user_profile(request):
+#     # ✅ 세션에서 로그인한 사용자 ID 가져오기
+#     user_id = request.session.get("user_id")
+
+#     if not user_id:
+#         return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
+
+#     with connection.cursor() as cursor:
+#         # ✅ `User` 테이블에서 user_id에 해당하는 정보 가져오기
+#         cursor.execute("SELECT user_id, name, email, skill FROM User WHERE user_id = %s", [user_id])
+#         user = cursor.fetchone()
+
+#     if user:
+#         data = {
+#             "user_id": user[0],
+#             "name": user[1],
+#             "email": user[2],
+#             "skill": user[3] if user[3] else "기술스택을 입력해주세요. ex)python, java, 프론트엔드, 리더십 등",  # ✅ skill이 None일 경우 처리
+#         }
+#         return JsonResponse(data, json_dumps_params={'ensure_ascii': False})  # ✅ JSON 한글 깨짐 방지
+
+#     return JsonResponse({"message": "사용자 정보를 찾을 수 없습니다."}, status=404)
+
 def get_user_profile(request):
     # ✅ 세션에서 로그인한 사용자 ID 가져오기
     user_id = request.session.get("user_id")
@@ -131,8 +158,8 @@ def get_user_profile(request):
         return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
 
     with connection.cursor() as cursor:
-        # ✅ `User` 테이블에서 user_id에 해당하는 정보 가져오기
-        cursor.execute("SELECT user_id, name, email, skill FROM User WHERE user_id = %s", [user_id])
+        # ✅ `User` 테이블에서 user_id에 해당하는 정보 가져오기 (profile_image 추가)
+        cursor.execute("SELECT user_id, name, email, skill, profile_image FROM User WHERE user_id = %s", [user_id])
         user = cursor.fetchone()
 
     if user:
@@ -140,11 +167,64 @@ def get_user_profile(request):
             "user_id": user[0],
             "name": user[1],
             "email": user[2],
-            "skill": user[3] if user[3] else "기술스택을 입력해주세요. ex)python, java, 프론트엔드, 리더십 등",  # ✅ skill이 None일 경우 처리
+            "skill": user[3] if user[3] else "기술스택을 입력해주세요. ex)python, java, 프론트엔드, 리더십 등",
+            "profile_image": user[4] if user[4] else None,  # ✅ 프로필 이미지 추가
         }
-        return JsonResponse(data, json_dumps_params={'ensure_ascii': False})  # ✅ JSON 한글 깨짐 방지
+        return JsonResponse(data, json_dumps_params={'ensure_ascii': False})
 
     return JsonResponse({"message": "사용자 정보를 찾을 수 없습니다."}, status=404)
+
+@csrf_exempt
+def upload_profile_image(request):
+    if request.method == "POST":
+        user_id = request.session.get("user_id")
+        
+        if not user_id:
+            return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
+        
+        # 업로드된 파일 가져오기
+        profile_image = request.FILES.get("profile_image")
+        
+        if not profile_image:
+            return JsonResponse({"message": "이미지 파일이 없습니다."}, status=400)
+        
+        try:
+            # media/profile_images/ 디렉토리 생성
+            upload_dir = os.path.join(settings.MEDIA_ROOT, 'profile_images')
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # 파일명 생성 (user_id + 확장자)
+            file_extension = os.path.splitext(profile_image.name)[1]
+            file_name = f"user_{user_id}{file_extension}"
+            file_path = os.path.join('profile_images', file_name)
+            
+            # 기존 파일 삭제 (있다면)
+            full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+            
+            # 새 파일 저장
+            saved_path = default_storage.save(file_path, ContentFile(profile_image.read()))
+            
+            # DB에 파일 경로 저장
+            image_url = f"{settings.MEDIA_URL}{file_path}"
+            
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE User SET profile_image = %s WHERE user_id = %s",
+                    [image_url, user_id]
+                )
+            
+            return JsonResponse({
+                "message": "프로필 이미지가 업로드되었습니다.",
+                "profile_image": image_url
+            }, status=200)
+            
+        except Exception as e:
+            print(f"프로필 이미지 업로드 오류: {e}")
+            return JsonResponse({"message": "이미지 업로드에 실패했습니다."}, status=500)
+    
+    return JsonResponse({"message": "POST 요청만 허용됩니다."}, status=405)
 
 @csrf_exempt  # ✅ CSRF 방지 (POST 요청 허용)
 def update_skill(request):
