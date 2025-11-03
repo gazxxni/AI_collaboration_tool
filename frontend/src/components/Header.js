@@ -58,19 +58,28 @@ const TeamIcon = () => (
   </svg>
 );
 
+const ChevronDownIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="6 9 12 15 18 9"></polyline>
+  </svg>
+);
+
 function Header({ nameInitials, currentDateTime }) {
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [profileImage, setProfileImage] = useState(null);
   const [myProjects, setMyProjects] = useState([]);
   const [showMyProjects, setShowMyProjects] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(true);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // 로그인된 사용자 ID 가져오기
+  // 로그인된 사용자 정보 가져오기
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/users/name/", {
+    fetch("http://127.0.0.1:8000/api/users/profile/", {
       method: "GET",
       credentials: "include",
     })
@@ -78,6 +87,15 @@ function Header({ nameInitials, currentDateTime }) {
       .then((data) => {
         if (data.user_id) {
           setUserId(parseInt(data.user_id));
+          setUserName(data.name || "사용자");
+          
+          // 프로필 이미지 경로 처리
+          if (data.profile_image) {
+            const imageUrl = data.profile_image.startsWith('http') 
+              ? data.profile_image 
+              : `http://127.0.0.1:8000${data.profile_image}`;
+            setProfileImage(imageUrl);
+          }
         }
       })
       .catch((err) =>
@@ -218,9 +236,61 @@ function Header({ nameInitials, currentDateTime }) {
         </button>
         {isChatOpen && <Chat onClose={() => setIsChatOpen(false)} />}
 
-        {/* 프로필 버튼 */}
-        <div className="Header_user-avatar" onClick={() => setIsProfileOpen(true)}>
-          <span>{nameInitials}</span>
+        {/* 프로필 영역 (사진 + 이름 + 드롭다운) */}
+        <div 
+          className="Header_user-section"
+          onMouseEnter={() => setShowUserMenu(true)}
+          onMouseLeave={() => setShowUserMenu(false)}
+        >
+          <div className="Header_user-info" onClick={() => setIsProfileOpen(true)}>
+            {profileImage ? (
+              <img 
+                src={profileImage} 
+                alt="프로필" 
+                className="Header_user-avatar-img"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div 
+              className="Header_user-avatar" 
+              style={{ display: profileImage ? "none" : "flex" }}
+            >
+              <span>{nameInitials}</span>
+            </div>
+            <div className="Header_user-details">
+              <span className="Header_user-name">{userName}</span>
+              <span className="Header_user-role">멤버</span>
+            </div>
+            <ChevronDownIcon />
+          </div>
+          
+          {/* 드롭다운 메뉴 */}
+          {showUserMenu && (
+            <div className="Header_user-menu">
+              <div className="Header_user-menu-item" onClick={() => setIsProfileOpen(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>프로필 설정</span>
+              </div>
+              <div className="Header_user-menu-divider"></div>
+              <div className="Header_user-menu-item logout" onClick={() => {
+                // 로그아웃 로직
+                navigate("/login");
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>로그아웃</span>
+              </div>
+            </div>
+          )}
         </div>
         {isProfileOpen && <Profile onClose={() => setIsProfileOpen(false)} />}
       </div>

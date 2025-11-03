@@ -22,6 +22,8 @@ import os
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+import boto3
+from botocore.exceptions import NoCredentialsError
 
 
 @method_decorator(csrf_exempt, name='dispatch')  # CSRF 보호 비활성화
@@ -174,6 +176,58 @@ def get_user_profile(request):
 
     return JsonResponse({"message": "사용자 정보를 찾을 수 없습니다."}, status=404)
 
+# @csrf_exempt
+# def upload_profile_image(request):
+#     if request.method == "POST":
+#         user_id = request.session.get("user_id")
+        
+#         if not user_id:
+#             return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
+        
+#         # 업로드된 파일 가져오기
+#         profile_image = request.FILES.get("profile_image")
+        
+#         if not profile_image:
+#             return JsonResponse({"message": "이미지 파일이 없습니다."}, status=400)
+        
+#         try:
+#             # media/profile_images/ 디렉토리 생성
+#             upload_dir = os.path.join(settings.MEDIA_ROOT, 'profile_images')
+#             os.makedirs(upload_dir, exist_ok=True)
+            
+#             # 파일명 생성 (user_id + 확장자)
+#             file_extension = os.path.splitext(profile_image.name)[1]
+#             file_name = f"user_{user_id}{file_extension}"
+#             file_path = os.path.join('profile_images', file_name)
+            
+#             # 기존 파일 삭제 (있다면)
+#             full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+#             if os.path.exists(full_path):
+#                 os.remove(full_path)
+            
+#             # 새 파일 저장
+#             saved_path = default_storage.save(file_path, ContentFile(profile_image.read()))
+            
+#             # DB에 파일 경로 저장
+#             image_url = f"{settings.MEDIA_URL}{file_path}"
+            
+#             with connection.cursor() as cursor:
+#                 cursor.execute(
+#                     "UPDATE User SET profile_image = %s WHERE user_id = %s",
+#                     [image_url, user_id]
+#                 )
+            
+#             return JsonResponse({
+#                 "message": "프로필 이미지가 업로드되었습니다.",
+#                 "profile_image": image_url
+#             }, status=200)
+            
+#         except Exception as e:
+#             print(f"프로필 이미지 업로드 오류: {e}")
+#             return JsonResponse({"message": "이미지 업로드에 실패했습니다."}, status=500)
+    
+#     return JsonResponse({"message": "POST 요청만 허용됩니다."}, status=405)
+
 @csrf_exempt
 def upload_profile_image(request):
     if request.method == "POST":
@@ -189,26 +243,33 @@ def upload_profile_image(request):
             return JsonResponse({"message": "이미지 파일이 없습니다."}, status=400)
         
         try:
-            # media/profile_images/ 디렉토리 생성
-            upload_dir = os.path.join(settings.MEDIA_ROOT, 'profile_images')
-            os.makedirs(upload_dir, exist_ok=True)
-            
             # 파일명 생성 (user_id + 확장자)
             file_extension = os.path.splitext(profile_image.name)[1]
-            file_name = f"user_{user_id}{file_extension}"
-            file_path = os.path.join('profile_images', file_name)
+            file_name = f"profile_images/user_{user_id}{file_extension}"
             
-            # 기존 파일 삭제 (있다면)
-            full_path = os.path.join(settings.MEDIA_ROOT, file_path)
-            if os.path.exists(full_path):
-                os.remove(full_path)
+            # ✅ AWS S3에 업로드
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME
+            )
             
-            # 새 파일 저장
-            saved_path = default_storage.save(file_path, ContentFile(profile_image.read()))
+            # S3에 파일 업로드 (public-read 권한 설정)
+            s3_client.upload_fileobj(
+                profile_image,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                file_name,
+                ExtraArgs={
+                    'ContentType': profile_image.content_type,
+                    # 'ACL': 'public-read'  # 모든 사람이 읽을 수 있도록 설정
+                }
+            )
+            
+            # S3 URL 생성
+            image_url = f"https://{settings.AWS_S3_CUSTOM_DOMAIN}/{file_name}"
             
             # DB에 파일 경로 저장
-            image_url = f"{settings.MEDIA_URL}{file_path}"
-            
             with connection.cursor() as cursor:
                 cursor.execute(
                     "UPDATE User SET profile_image = %s WHERE user_id = %s",
@@ -220,11 +281,15 @@ def upload_profile_image(request):
                 "profile_image": image_url
             }, status=200)
             
+        except NoCredentialsError:
+            print("AWS 자격 증명을 찾을 수 없습니다.")
+            return JsonResponse({"message": "AWS 설정 오류입니다."}, status=500)
         except Exception as e:
             print(f"프로필 이미지 업로드 오류: {e}")
-            return JsonResponse({"message": "이미지 업로드에 실패했습니다."}, status=500)
+            return JsonResponse({"message": f"이미지 업로드에 실패했습니다: {str(e)}"}, status=500)
     
     return JsonResponse({"message": "POST 요청만 허용됩니다."}, status=405)
+
 
 @csrf_exempt  # ✅ CSRF 방지 (POST 요청 허용)
 def update_skill(request):
@@ -346,7 +411,13 @@ class GetProjectIDView(APIView):
                     "user_id": user_id  # 세션에서 가져온 user_id도 함께 반환
                 }, status=status.HTTP_200_OK)
             else:
-                return Response({"error": "No project ID found in session."}, status=status.HTTP_404_NOT_FOUND)
+            # 404 대신 200 OK와 함께 project_id가 null임을 알립니다.
+                return Response({
+                    "project_id": None,
+                    "project_name": None,
+                    "is_favorite": False,
+                    "user_id": user_id 
+                }, status=status.HTTP_200_OK)
         except Exception as e:
             print(f"Error fetching project id: {e}")
             return Response({"error": "서버 내부 오류가 발생했습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
