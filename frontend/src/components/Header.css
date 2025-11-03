@@ -396,3 +396,46 @@
     display: none;
   }
 }
+
+
+
+.Header_search-container { position: relative; width: 260px; }
+.Header_search-results {
+  position: absolute;
+  top: 42px; left: 0; right: 0;
+  background: #f9fafb;
+  border: 1px solid #7b7979;
+  border-radius: 10px;
+  max-height: 300px;
+  overflow: auto;
+  z-index: 50;
+  padding: 6px 0;
+  color: #a4a6a7;
+  font-weight: bold;
+  font-size: 15px;
+}
+.Header_search-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex; align-items: center;
+}
+.Header_search-item:hover,
+.Header_search-item.active {
+  background: #f9fafb;
+}
+
+.Header_search-item:hover{
+  color: #2b2b2c;
+}
+
+
+.Header_search-noresult {
+  position: absolute;
+  top: 42px; left: 0; right: 0;
+  background: #f9fafb;
+  border: 1px solid #2d2d2d;
+  border-radius: 10px;
+  padding: 12px;
+  z-index: 50;
+  color: #aaa;
+}

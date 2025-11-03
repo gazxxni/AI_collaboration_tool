@@ -486,7 +486,7 @@ function MainPage({ userId, userName }) {
             {/* Right - Recent Activity */}
             <div className="right-section">
               <div className="section-card activity-section">
-                <h2 className="section-title">최근 활동</h2>
+                <h2 className="section-title-activity">최근 활동</h2>
                 <div className="activity-list">
                   {projectLogs.length === 0 ? (
                     <p className="no-activity">활동 내역이 없습니다</p>
