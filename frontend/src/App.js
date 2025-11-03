@@ -21,6 +21,7 @@ import ProjectActivity from './pages/ProjectActivity';
 import TeamFinder from './pages/TeamFinder';
 import ScrollToTop from './components/ScrollToTop';
 
+
 function App() {
   return (
     <Router>
@@ -99,7 +100,10 @@ function AppContent() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/main" element={<MainPage nameInitials={userInitials} />} />
+        <Route path="/main" element={ <MainPage userId={userId} userName={userName} nameInitials={userInitials}/>}/>
+        
+        
+        
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/team-finder" element={<TeamFinder />} />
         <Route

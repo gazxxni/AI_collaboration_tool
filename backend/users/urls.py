@@ -31,6 +31,10 @@ get_user_task_details,
 upload_profile_image,
 )
 
+from .views_dashboard import DashboardView, TaskDetailsView
+from .views_project import ProjectLogsView, FavoriteToggleView, CurrentProjectGetView, CurrentProjectSetView
+
+
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('name/', get_user_name, name='get_user_name'),  # 로그인된 사용자 이름 반환
@@ -61,5 +65,14 @@ urlpatterns = [
     path('posts/delete/<int:post_id>/', delete_post, name='posts-delete'),
     path('task-stats/', get_user_task_stats, name='get_user_task_stats'),
     path('task-details/', get_user_task_details, name='get_user_task_details'),
+    path('<int:user_id>/dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('task-details/', TaskDetailsView.as_view(), name='task-details'),
+
+    path('projects/<int:project_id>/logs/', ProjectLogsView.as_view(), name='project-logs'),
+    path('<int:user_id>/projects/<int:project_id>/favorite/', FavoriteToggleView.as_view(), name='favorite-toggle'),
+
+    path('projects/get/', CurrentProjectGetView.as_view(), name='current-project-get'),
+    path('projects/set/', CurrentProjectSetView.as_view(), name='current-project-set'),
+
 ]
 
