@@ -70,7 +70,13 @@ function Header({ nameInitials, currentDateTime }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(true);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const notifBoxRef = useRef(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // ★ Chat 모달 초기화 상태
+  const [chatInit, setChatInit] = useState(null);
 
   // 🔎 검색 상태
   const [query, setQuery] = useState("");
@@ -205,6 +211,78 @@ function Header({ nameInitials, currentDateTime }) {
     handleSelectProject(projectId);
   };
 
+    const fetchNotifications = () => {
+    fetch("http://127.0.0.1:8000/api/users/notifications/", {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(res => res.json())
+      .then(data => {
+        setNotifications(Array.isArray(data.items) ? data.items : []);
+        setHasNotifications(false); // 열면 dot 제거
+      })
+      .catch(err => console.error("🚨 알림을 불러오지 못했습니다.", err));
+  };
+
+  // 벨 클릭
+  const onClickBell = () => {
+    const next = !showNotifPanel;
+    setShowNotifPanel(next);
+    if (next) fetchNotifications();
+  };
+
+    // 패널 바깥 클릭 시 닫기
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (notifBoxRef.current && !notifBoxRef.current.contains(e.target)) {
+        setShowNotifPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // 공통: 프로젝트 세팅 후 이동
+const openProject = (projectId) => {
+  fetch("http://127.0.0.1:8000/api/users/projects/set/", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ project_id: projectId }),
+  })
+    .then((res) => res.json())
+    .then(() => {
+      setShowNotifPanel(false);
+      navigate(`/project/${projectId}/task`);
+    })
+    .catch((err) => console.error("Error setting project ID:", err));
+};
+
+// DM 열기
+const openDM = (roomId, partnerName) => {
+  setChatInit({ tab: "dm", roomId, partnerName });
+  setIsChatOpen(true);
+  setShowNotifPanel(false);
+};
+
+// Header.jsx
+const openProjectChat = async (projectId, projectName) => {
+  try {
+    await fetch("http://127.0.0.1:8000/api/users/projects/set/", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ project_id: projectId }),
+    });
+  } catch (e) {
+    console.error("프로젝트 세션 설정 실패:", e);
+  }
+  // 그 다음 모달 오픈 + 초기화
+  setChatInit({ tab: "project", projectId, projectName });
+  setIsChatOpen(true);
+  setShowNotifPanel(false);
+};
+
   return (
     <header className="Header_header">
       <div className="Header_left">
@@ -324,16 +402,115 @@ function Header({ nameInitials, currentDateTime }) {
         </div>
 
         {/* 알림 버튼 */}
-        <button className="Header_notification-btn" onClick={() => setHasNotifications(false)}>
+        <button className="Header_notification-btn" onClick={onClickBell}>
           <BellIcon />
           {hasNotifications && <span className="Header_notification-dot"></span>}
         </button>
+                {showNotifPanel && (
+          <div className="Header_notif-panel" ref={notifBoxRef}>
+            <div className="Header_notif-header">
+              <span>최근 알림</span>
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="Header_notif-empty">최근 알림이 없습니다.</div>
+            ) : (
+              <ul className="Header_notif-list">
+              {notifications.map((n) => {
+                if (n.type === "urgent_task") {
+                  return (
+                    <li
+                      key={`u-${n.id}`}
+                      className="notif-item urgent"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        if (n.project_id) openProject(n.project_id);
+                      }}
+                    >
+                      <span className="notif-badge">긴급</span>
+                      <div className="notif-text">
+                        <div className="notif-title">📁 {n.project_name} / {n.title}</div>
+                        <div className="notif-sub">마감: {new Date(n.due).toLocaleString("ko-KR")}</div>
+                      </div>
+                    </li>
+                  );
+                } else if (n.type === "comment") {
+                  return (
+                    <li
+                      key={`c-${n.id}`}
+                      className="notif-item comment"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        if (n.project_id) openProject(n.project_id);
+                        // (선택) task 하이라이트가 필요하면 쿼리스트링으로 넘겨서 UI에서 처리:
+                        // navigate(`/project/${n.project_id}/task?highlight=${n.task_id}`)
+                      }}
+                    >
+                      <span className="notif-badge">댓글</span>
+                      <div className="notif-text">
+                        <div className="notif-title">🗂 {n.project_name} / {n.task_name}</div>
+                        <div className="notif-sub">{n.author_name}: {n.content}</div>
+                      </div>
+                    </li>
+                  );
+                } else if (n.type === "dm") {
+                  return (
+                    <li
+                      key={`d-${n.id}`}
+                      className="notif-item dm"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        openDM(n.room_id, n.from_name);
+                      }}
+                    >
+                      <span className="notif-badge">DM</span>
+                      <div className="notif-text">
+                        <div className="notif-title">💬 {n.from_name}</div>
+                        <div className="notif-sub">{n.content}</div>
+                      </div>
+                    </li>
+                  );
+                } else if (n.type === "group_message") {
+                  return (
+                    <li
+                      key={`g-${n.id}`}
+                      className="notif-item group"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        openProjectChat(n.project_id, n.project_name);
+                        // 혹은 프로젝트 페이지로 보내고 싶다면:
+                        // openProject(n.project_id);
+                      }}
+                    >
+                      <span className="notif-badge">그룹</span>
+                      <div className="notif-text">
+                        <div className="notif-title">#{n.project_name}</div>
+                        <div className="notif-sub">{n.from_name}: {n.content}</div>
+                      </div>
+                    </li>
+                  );
+                }
+                return null;
+              })}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* 채팅 버튼 */}
         <button className="Header_icon-btn" onClick={() => setIsChatOpen(true)}>
           <MessageIcon />
         </button>
-        {isChatOpen && <Chat onClose={() => setIsChatOpen(false)} />}
+        {isChatOpen && (
+          <Chat
+            onClose={() => { setIsChatOpen(false); setChatInit(null); }}
+            initTab={chatInit?.tab}                 // "dm" | "project"
+            initRoomId={chatInit?.roomId}           // dm 전용
+            initPartner={chatInit?.partnerName}     // dm 전용(표시용)
+            initProjectId={chatInit?.projectId}     // project 전용
+            initProjectName={chatInit?.projectName} // project 전용(표시용)
+          />
+        )}
 
         {/* 프로필 영역 (사진 + 이름 + 드롭다운) */}
         <div
@@ -377,7 +554,7 @@ function Header({ nameInitials, currentDateTime }) {
               <div
                 className="Header_user-menu-item logout"
                 onClick={() => {
-                  navigate("/login");
+                  navigate("/");
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

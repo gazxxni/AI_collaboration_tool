@@ -33,6 +33,7 @@ upload_profile_image,
 
 from .views_dashboard import DashboardView, TaskDetailsView
 from .views_project import ProjectLogsView, FavoriteToggleView, CurrentProjectGetView, CurrentProjectSetView
+from .views_notifications import NotificationsView
 
 
 urlpatterns = [
@@ -73,6 +74,8 @@ urlpatterns = [
 
     path('projects/get/', CurrentProjectGetView.as_view(), name='current-project-get'),
     path('projects/set/', CurrentProjectSetView.as_view(), name='current-project-set'),
+
+    path("notifications/", NotificationsView.as_view(), name="notifications"),
 
 ]
 

@@ -439,3 +439,59 @@
   z-index: 50;
   color: #aaa;
 }
+
+/* Header.css 끝부분에 */
+.Header_notif-panel {
+  position: absolute;
+  right: 80px; /* 헤더 우측 정렬 맞춰 조절 */
+  top: 60px;
+  width: 380px;
+  max-height: 520px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  z-index: 2000;
+}
+.Header_notif-header {
+  padding: 12px 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #f1f5f9;
+}
+.Header_notif-empty {
+  padding: 20px;
+  color: #6b7280;
+}
+.Header_notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+.notif-item {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: default;
+}
+.notif-item:hover {
+  background: #f9fafb;
+}
+.notif-badge {
+  min-width: 40px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 22px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  text-align: center;
+  margin-top: 2px;
+}
+.notif-item.urgent .notif-badge { background:#fee2e2; color:#dc2626; }
+.notif-item.comment .notif-badge { background:#e0f2fe; color:#0369a1; }
+.notif-item.dm .notif-badge      { background:#ede9fe; color:#7c3aed; }
+.notif-title { font-weight: 600; }
+.notif-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.notif-item.group .notif-badge { background:#f0fdf4; color:#16a34a; }

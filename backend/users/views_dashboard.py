@@ -2,7 +2,8 @@
 from datetime import date, timedelta
 from calendar import monthrange
 
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q, Max
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -12,29 +13,28 @@ from db_model.models import (
     Task, TaskManager, Schedule, Log
 )
 
-DONE_STATUSES   = {'DONE', '완료'}
+DONE_STATUSES   = {3}
 ACTIVE_STATUSES = {'TODO', 'DOING', 'IN_PROGRESS', '진행중', '대기'}
 URGENT_DAYS     = 3
+ACTIVE_STATUS_CODES = {1, 2}
 
 
 def month_bounds(yyyy_mm: str | None):
-    today = date.today()
-    if not yyyy_mm:
-        y, m = today.year, today.month
-    else:
+    # ✅ naive/aware 충돌 피하려고 date.today()만 사용
+    if yyyy_mm:
         y, m = map(int, yyyy_mm.split('-'))
-    last = monthrange(y, m)[1]
-    return date(y, m, 1), date(y, m, last)
+        first = date(y, m, 1)
+    else:
+        t = date.today()
+        first = date(t.year, t.month, 1)
+    last = monthrange(first.year, first.month)[1]
+    return first, date(first.year, first.month, last)
 
 class DashboardView(APIView):
-
     def get(self, request, user_id: int):
-        
         session_uid = request.session.get("user_id")
         if not session_uid:
             return Response({"detail": "로그인이 필요합니다."}, status=401)
-
-        # 문자열/정수 혼합 대비해서 int 비교 권장
         if int(session_uid) != int(user_id):
             return Response({"detail": "권한이 없습니다."}, status=403)
 
@@ -45,27 +45,52 @@ class DashboardView(APIView):
         if not user:
             return Response({"detail": "User not found"}, status=404)
 
-        # 내가 속한 프로젝트
-        project_ids_qs = ProjectMember.objects.filter(user_id=user_id).values_list('project_id', flat=True)
+        # ✅ 오늘 날짜도 naive date로 통일
+        today = date.today()
 
-        # 프로젝트 + 즐겨찾기 여부
-        fav_exists = FavoriteProject.objects.filter(user_id=user_id, project_id=OuterRef('project_id'))
+        project_ids_qs = ProjectMember.objects.filter(user_id=user_id)\
+                           .values_list('project_id', flat=True)
+
+        fav_exists = FavoriteProject.objects.filter(
+            user_id=user_id, project_id=OuterRef('project_id')
+        )
         projects_qs = (Project.objects
             .filter(project_id__in=project_ids_qs)
             .annotate(is_fav=Exists(fav_exists))
             .values('project_id', 'project_name', 'is_fav'))
 
-        # 진행률 집계
         total_by_project = dict(
             TaskManager.objects.filter(project_id__in=project_ids_qs)
             .values('project_id').annotate(cnt=Count('task', distinct=True))
             .values_list('project_id', 'cnt')
         )
-        done_task_ids = Task.objects.filter(status__in=DONE_STATUSES).values_list('task_id', flat=True)
+        done_task_ids = Task.objects.filter(status__in=DONE_STATUSES)\
+                          .values_list('task_id', flat=True)
         done_by_project = dict(
             TaskManager.objects.filter(project_id__in=project_ids_qs, task_id__in=done_task_ids)
             .values('project_id').annotate(cnt=Count('task', distinct=True))
             .values_list('project_id', 'cnt')
+        )
+
+        # ✅ 진행 중 업무 수(프로젝트별)
+        active_by_project = dict(
+            TaskManager.objects
+            .filter(
+                project_id__in=project_ids_qs,
+                task__status__in=ACTIVE_STATUS_CODES  # ← 여기 핵심!
+            )
+            .values('project_id')
+            .annotate(cnt=Count('task', distinct=True))
+            .values_list('project_id', 'cnt')
+        )
+
+        # ✅ 프로젝트 마감일: 프로젝트 내 업무들의 최대 end_date(없으면 None)
+        deadline_by_project = dict(
+            TaskManager.objects
+            .filter(project_id__in=project_ids_qs)
+            .values('project_id')
+            .annotate(deadline=Max('task__end_date'))
+            .values_list('project_id', 'deadline')
         )
 
         projects_payload = []
@@ -74,20 +99,32 @@ class DashboardView(APIView):
             total = total_by_project.get(pid, 0)
             done  = done_by_project.get(pid, 0)
             progress = int((done * 100) / total) if total else 0
+
+            ongoing = active_by_project.get(pid, 0)
+
+            # ✅ deadline 타입 안전 처리(date/datetime/None 모두 커버)
+            dl = deadline_by_project.get(pid)
+            if dl:
+                dldate = dl.date() if hasattr(dl, "date") else dl
+                remaining_days = (dldate - today).days
+            else:
+                remaining_days = None
+
             projects_payload.append({
-                "project_id":   pid,
-                "project_name": p['project_name'],
-                "is_favorite":  bool(p['is_fav']),
-                "progress":     progress,
+                "project_id":     pid,
+                "project_name":   p['project_name'],
+                "is_favorite":    bool(p['is_fav']),
+                "progress":       progress,
+                "ongoing_tasks":  ongoing,          # 프론트에서 사용
+                "remaining_days": remaining_days,   # 프론트에서 사용
             })
 
-        # 내 업무 통계
+        # 아래 통계/로그/캘린더는 그대로
         my_task_ids = set(
             TaskManager.objects.filter(user_id=user_id).values_list('task_id', flat=True)
         )
-        my_tasks_count = Task.objects.filter(task_id__in=my_task_ids, status__in=ACTIVE_STATUSES).count()
+        my_tasks_count = Task.objects.filter(task_id__in=my_task_ids).count()
         completed_count = Task.objects.filter(task_id__in=my_task_ids, status__in=DONE_STATUSES).count()
-        today = date.today()
         urgent_end = today + timedelta(days=URGENT_DAYS)
         urgent_count = Task.objects.filter(
             task_id__in=my_task_ids,
@@ -101,7 +138,6 @@ class DashboardView(APIView):
             "urgent_tasks":    urgent_count
         }
 
-        # 최근 로그 20개
         recent_logs_qs = Log.objects.select_related('user', 'task').order_by('-created_date')[:20]
         recent_logs = [{
             "user_name":    (log.user.name if log.user else "알 수 없음"),
@@ -111,14 +147,14 @@ class DashboardView(APIView):
             "content":      (log.content or "")
         } for log in recent_logs_qs]
 
-        # 캘린더(이 달)
         my_calendar_qs = (Schedule.objects
             .filter(user_id=user_id, start_time__range=(start_d, end_d))
             .values('schedule_id', 'start_time', 'title'))
         my_calendar = [{"date": r['start_time'], "schedule_id": r['schedule_id'], "title": r['title']}
                        for r in my_calendar_qs]
 
-        team_task_ids = TaskManager.objects.filter(project_id__in=project_ids_qs).values_list('task_id', flat=True)
+        team_task_ids = TaskManager.objects.filter(project_id__in=project_ids_qs)\
+                                           .values_list('task_id', flat=True)
         team_calendar_qs = (Task.objects
             .filter(task_id__in=team_task_ids, end_date__date__range=(start_d, end_d))
             .values('task_id', 'task_name', 'end_date'))
@@ -132,6 +168,7 @@ class DashboardView(APIView):
             "recent_logs": recent_logs,
             "calendar": {"my": my_calendar, "team": team_calendar}
         })
+
 
 
 class TaskDetailsView(APIView):

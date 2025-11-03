@@ -103,7 +103,13 @@ function MainPage({ userId, userName }) {
 
   // 모달
   const [showModal, setShowModal] = useState(false);
-  const [modalData, setModalData] = useState({ type: '', tasks: [], title: '', total: 0 });
+  const [modalData, setModalData] = useState({
+    type: '',
+    tasks: [],
+    projects: [],   // 추가
+    title: '',
+    total: 0
+  });
 
   // month 파라미터(YYYY-MM) → 달 이동 시 재요청
   const monthParam = `${activeStartDate.getFullYear()}-${String(activeStartDate.getMonth() + 1).padStart(2, "0")}`;
@@ -240,6 +246,18 @@ function MainPage({ userId, userName }) {
     return [...favoriteProjects, ...nonFavoriteProjects];
   }, [projects]);
 
+// 프로젝트 목록 모달 열기 (대시보드에서 이미 받은 projects 사용)
+const fetchProjectList = () => {
+  setModalData({
+    type: 'projects',
+    projects,                      // 현재 상태의 프로젝트 배열
+    tasks: [],
+    title: '내 프로젝트',
+    total: projects.length
+  });
+  setShowModal(true);
+};
+
   // 오늘/선택일 일정 (맵으로 O(1))
   const today = getToday();
   const todaySchedules = schedulesMap.get(today) || [];
@@ -271,7 +289,7 @@ function MainPage({ userId, userName }) {
 
           {/* Top Stats */}
           <div className="stats-grid">
-            <div className="stat-card clickable" onClick={() => fetchTaskDetails('my')}>
+            <div className="stat-card clickable" onClick={fetchProjectList}>
               <div className="stat-header">
                 <div className="stat-icon blue-bg"><FolderIcon /></div>
                 <span className="stat-badge blue">프로젝트</span>
@@ -353,11 +371,15 @@ function MainPage({ userId, userName }) {
                           <div className="project-detail-inline">
                             <div className="detail-item">
                               <span>진행중인 업무</span>
-                              <span className="detail-value">8개</span>
+                              <span className="detail-value">{project.ongoing_tasks || 0}개</span>
                             </div>
                             <div className="detail-item">
                               <span>남은 기간</span>
-                              <span className="detail-value red-text">23일</span>
+                              <span className={`detail-value ${project.remaining_days !== null && project.remaining_days < 7 ? 'red-text' : ''}`}>
+                                {project.remaining_days !== null && project.remaining_days !== undefined 
+                                  ? `${project.remaining_days}일` 
+                                  : '기한 없음'}
+                              </span>
                             </div>
                             <button
                               className="detail-button"
@@ -524,7 +546,6 @@ function MainPage({ userId, userName }) {
               </div>
             </div>
 
-            {/* 모달 */}
             {showModal && (
               <div className="modal-overlay" onClick={closeModal}>
                 <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -532,33 +553,77 @@ function MainPage({ userId, userName }) {
                     <h2 className="modal-title">{modalData.title}</h2>
                     <button className="modal-close" onClick={closeModal}>×</button>
                   </div>
+
                   <div className="modal-body">
-                    {modalData.tasks.length === 0 ? (
-                      <p className="no-tasks">업무가 없습니다.</p>
-                    ) : (
-                      <div className="task-list">
-                        {modalData.tasks.map((task) => (
-                          <div key={task.task_id} className="task-item">
-                            <div className="task-info">
-                              <h4 className="task-name">{task.task_name}</h4>
-                              <p className="project-info">📁 {task.project_name}</p>
-                              <div className="task-meta">
-                                <span className={`status-badge status-${task.status_code}`}>{task.status}</span>
-                                <span className="due-date">
-                                  {formatModalDate(task.end_date)}
-                                  {modalData.type === 'urgent' && task.end_date && (
-                                    <span className="d-day"> ({calculateDDay(task.end_date)})</span>
-                                  )}
-                                </span>
+                    {/* 프로젝트 모달 */}
+                    {modalData.type === 'projects' ? (
+                      modalData.projects.length === 0 ? (
+                        <p className="no-tasks">프로젝트가 없습니다.</p>
+                      ) : (
+                        <div className="task-list">
+                          {modalData.projects.map((p) => (
+                            <div key={p.project_id} className="task-item">
+                              <div className="task-info">
+                                <h4 className="task-name">{p.project_name}</h4>
+                                <div className="task-meta">
+                                  <span className="project-info">진행률 {p.progress}%</span>
+                                  <span className={`due-date ${p.remaining_days !== null && p.remaining_days < 7 ? 'red-text' : ''}`}>
+                                    {p.remaining_days !== null && p.remaining_days !== undefined ? `남은 ${p.remaining_days}일` : '기한 없음'}
+                                  </span>
+                                </div>
                               </div>
+                              <button
+                                className="detail-button"
+                                onClick={() => {
+                                  fetch("http://127.0.0.1:8000/api/users/projects/set/", {
+                                    method: "POST",
+                                    credentials: "include",
+                                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                    body: new URLSearchParams({ project_id: p.project_id }),
+                                  })
+                                    .then((res) => res.json())
+                                    .then(() => { window.location.href = `/project/${p.project_id}/task`; })
+                                    .catch((err) => console.error("Error setting project ID:", err));
+                                }}
+                              >
+                                프로젝트 상세 보기 <ChevronRightIcon />
+                              </button>
                             </div>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      /* 기존 업무 모달 그대로 */
+                      <>
+                        {modalData.tasks.length === 0 ? (
+                          <p className="no-tasks">업무가 없습니다.</p>
+                        ) : (
+                          <div className="task-list">
+                            {modalData.tasks.map((task) => (
+                              <div key={task.task_id} className="task-item">
+                                <div className="task-info">
+                                  <h4 className="task-name">{task.task_name}</h4>
+                                  <p className="project-info">📁 {task.project_name}</p>
+                                  <div className="task-meta">
+                                    <span className={`status-badge status-${task.status_code}`}>{task.status}</span>
+                                    <span className="due-date">
+                                      {formatModalDate(task.end_date)}
+                                      {modalData.type === 'urgent' && task.end_date && (
+                                        <span className="d-day"> ({calculateDDay(task.end_date)})</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
+
                   <div className="modal-footer">
-                    <p className="task-count">총 {modalData.total}개의 업무</p>
+                    <p className="task-count">총 {modalData.total}{modalData.type === 'projects' ? '개의 프로젝트' : '개의 업무'}</p>
                   </div>
                 </div>
               </div>
