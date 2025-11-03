@@ -449,34 +449,26 @@ const Profile = ({ onClose }) => {
                             <div className="profile-container">
                                 {/* ✅ 왼쪽 섹션 (아이콘 + 비밀번호 변경) */}
                                 <div className="profile-left">
-                                    <div className="profile-image-container" onClick={handleImageClick} style={{ cursor: "pointer", position: "relative" }}>
+                                    <div className="profile-image-container" onClick={handleImageClick} style={{ cursor: "pointer", position: "relative", width: "150px", height: "150px" }}>
                                       {profileImage ? (
                                         <img 
                                           src={profileImage} 
                                           alt="프로필" 
-                                          className="profile-icon"
                                           style={{ 
                                             width: "150px", 
                                             height: "150px", 
                                             borderRadius: "50%", 
-                                            objectFit: "cover" 
+                                            objectFit: "cover",
+                                            display: "block"
                                           }}
                                           onError={(e) => {
                                             console.error("이미지 로드 실패:", profileImage);
-                                            e.target.style.display = "none";
-                                            e.target.nextSibling.style.display = "block";
+                                            setProfileImage(null);
                                           }}
                                         />
                                       ) : (
-                                        <FaUserCircle className="profile-icon" style={{ fontSize: "150px" }} />
+                                        <FaUserCircle style={{ fontSize: "150px", width: "150px", height: "150px" }} />
                                       )}
-                                      <FaUserCircle 
-                                        className="profile-icon" 
-                                        style={{ 
-                                          fontSize: "150px",
-                                          display: profileImage ? "none" : "block" 
-                                        }} 
-                                      />
                                       <div className="camera-overlay" style={{
                                         position: "absolute",
                                         bottom: "10px",
