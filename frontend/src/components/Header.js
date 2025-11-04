@@ -85,42 +85,41 @@ function Header({ nameInitials, currentDateTime }) {
   const searchBoxRef = useRef(null);
   const inputRef = useRef(null);
 
-  // 로그인된 사용자 정보
+  // ✅ 부트스트랩: 프로필 + 내 프로젝트 + 알림을 한 번에
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/users/profile/", {
-      method: "GET",
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user_id) {
-          setUserId(parseInt(data.user_id, 10));
-          setUserName(data.name || "사용자");
-          if (data.profile_image) {
-            const url = data.profile_image.startsWith("http")
-              ? data.profile_image
-              : `http://127.0.0.1:8000${data.profile_image}`;
+    (async () => {
+      try {
+        const res = await fetch(
+          "http://127.0.0.1:8000/api/users/notifications/?full=1",
+          { method: "GET", credentials: "include" }
+        );
+        if (!res.ok) throw new Error("boot load failed");
+        const data = await res.json();
+
+        // user
+        if (data.user?.user_id) {
+          setUserId(Number(data.user.user_id));
+          setUserName(data.user.name || "사용자");
+          if (data.user.profile_image) {
+            const url = data.user.profile_image.startsWith("http")
+              ? data.user.profile_image
+              : `http://127.0.0.1:8000${data.user.profile_image}`;
             setProfileImage(url);
           }
         }
-      })
-      .catch((err) => console.error("🚨 사용자 정보를 불러오지 못했습니다.", err));
+
+        // projects
+        setMyProjects(Array.isArray(data.my_projects) ? data.my_projects : []);
+
+        // notifications
+        setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+        setHasNotifications((data.notifications?.length || 0) > 0);
+      } catch (e) {
+        console.error("🚨 초기 데이터 로드 실패:", e);
+      }
+    })();
   }, []);
 
-  // 내 프로젝트 목록
-  useEffect(() => {
-    if (!userId) return;
-    fetch(`http://127.0.0.1:8000/chat/api/user/${userId}/projects/`, {
-      method: "GET",
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.projects) setMyProjects(data.projects);
-        else if (data.error) console.log(data.error);
-      })
-      .catch((err) => console.error("🚨 프로젝트 목록을 불러오지 못했습니다.", err));
-  }, [userId]);
 
   // 한글 정렬(숫자 시작은 뒤로)
   const sortKorean = (a, b) => {
@@ -228,7 +227,8 @@ function Header({ nameInitials, currentDateTime }) {
   const onClickBell = () => {
     const next = !showNotifPanel;
     setShowNotifPanel(next);
-    if (next) fetchNotifications();
+    // if (next) fetchNotifications();
+    if (next) setHasNotifications(false);
   };
 
     // 패널 바깥 클릭 시 닫기
