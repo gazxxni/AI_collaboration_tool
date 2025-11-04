@@ -302,7 +302,7 @@ function Report({ nameInitials, currentProjectId }) {
                       plugins: [
                         'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
                         'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                        'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+                        'insertdatetime', 'table', 'preview', 'help', 'wordcount'
                       ],
                       toolbar:
                         'undo redo | formatselect fontselect fontsizeselect | bold italic backcolor | ' +
@@ -360,7 +360,7 @@ function Report({ nameInitials, currentProjectId }) {
                       plugins: [
                         'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
                         'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                        'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+                        'insertdatetime', 'table', 'preview', 'help', 'wordcount'
                       ],
                       toolbar:
                         'undo redo | formatselect fontselect fontsizeselect | bold italic backcolor | ' +
