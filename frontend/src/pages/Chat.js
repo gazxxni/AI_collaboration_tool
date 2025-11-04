@@ -560,6 +560,14 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
     socket.send(JSON.stringify(messageData));
     setMessage("");
   };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   
   // ✅ 메시지가 추가될 때마다 스크롤을 맨 아래로 이동
   useEffect(() => {
@@ -569,8 +577,8 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   }, [messages]);
   
   return (
-    <div className="Invite_overlay">
-      <div className="Invite_modal">
+    <div className="Invite_overlay" onClick={onClose}>
+      <div className="Invite_modal" onClick={(e) => e.stopPropagation()} >
         <button className="Invite_close_btn" onClick={onClose}>
           ✖
         </button>
