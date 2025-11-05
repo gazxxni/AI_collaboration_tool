@@ -96,8 +96,9 @@ function MainPage({ userId, userName }) {
   // 통계
   const [stats, setStats] = useState({
     totalProjects: 0,
-    myTasks: 0,
-    completedTasks: 0,
+    myTasks: 0,          // 내가 맡은 전체 업무
+    incompleteTasks: 0,  // 요청+진행
+    feedbackTasks: 0,    // 피드백
     urgentTasks: 0
   });
 
@@ -130,9 +131,10 @@ function MainPage({ userId, userName }) {
         setProjectLogs(data.recent_logs ?? []);
         setStats({
           totalProjects: (data.projects ?? []).length,
-          myTasks: data.task_stats?.my_tasks ?? 0,
-          completedTasks: data.task_stats?.completed_tasks ?? 0,
-          urgentTasks: data.task_stats?.urgent_tasks ?? 0
+          myTasks:          data.task_stats?.my_tasks ?? 0,
+          incompleteTasks:  data.task_stats?.incomplete_tasks ?? 0,
+          feedbackTasks:    data.task_stats?.feedback_tasks ?? 0,
+          urgentTasks:      data.task_stats?.urgent_tasks ?? 0
         });
 
         setSchedulesMap(buildScheduleMap(data.calendar?.my ?? []));
@@ -160,23 +162,30 @@ function MainPage({ userId, userName }) {
 
   // 모달 데이터
   const fetchTaskDetails = async (type) => {
-    try {
-      const response = await axios.get(
-        `http://127.0.0.1:8000/api/users/task-details/?type=${type}`,
-        { withCredentials: true }
-      );
-      const titles = { my: '내가 맡은 업무', completed: '완료한 업무', urgent: '긴급 업무' };
-      setModalData({
-        type,
-        tasks: response.data.tasks,
-        title: titles[type],
-        total: response.data.total
-      });
-      setShowModal(true);
-    } catch (error) {
-      console.error('Error fetching task details:', error);
-    }
-  };
+      try {
+        const response = await axios.get(
+          `http://127.0.0.1:8000/api/users/task-details/?type=${type}`,
+          { withCredentials: true }
+        );
+      const titles = {
+        my: '내가 맡은 업무',
+        incomplete: '미완료된 업무',
+        feedback: '피드백 필요한 업무',
+        completed: '완료한 업무',
+        urgent: '긴급 업무'
+      };
+        setModalData({
+          type,
+          tasks: response.data.tasks,
+          title: titles[type],
+          total: response.data.total
+        });
+        setShowModal(true);
+      } catch (error) {
+        console.error('Error fetching task details:', error);
+      }
+    };
+
   const closeModal = () => {
     setShowModal(false);
     setModalData({ type: '', tasks: [], title: '', total: 0 });
@@ -288,32 +297,33 @@ const fetchProjectList = () => {
         <div className="dashboard-content">
 
           {/* Top Stats */}
+          {/* Top Stats (개편) */}
           <div className="stats-grid">
-            <div className="stat-card clickable" onClick={fetchProjectList}>
-              <div className="stat-header">
-                <div className="stat-icon blue-bg"><FolderIcon /></div>
-                <span className="stat-badge blue">프로젝트</span>
-              </div>
-              <h3 className="stat-number">{stats.totalProjects}</h3>
-              <p className="stat-label">진행중인 프로젝트</p>
-            </div>
-
             <div className="stat-card clickable" onClick={() => fetchTaskDetails('my')}>
               <div className="stat-header">
                 <div className="stat-icon purple-bg"><LayoutIcon /></div>
-                <span className="stat-badge purple">업무</span>
+                <span className="stat-badge purple">내 업무</span>
               </div>
               <h3 className="stat-number">{stats.myTasks}</h3>
               <p className="stat-label">내가 맡은 업무</p>
             </div>
 
-            <div className="stat-card clickable" onClick={() => fetchTaskDetails('completed')}>
+            <div className="stat-card clickable" onClick={() => fetchTaskDetails('incomplete')}>
+              <div className="stat-header">
+                <div className="stat-icon blue-bg"><FolderIcon /></div>
+                <span className="stat-badge blue">미완료</span>
+              </div>
+              <h3 className="stat-number">{stats.incompleteTasks}</h3>
+              <p className="stat-label">미완료된 업무</p>
+            </div>
+
+            <div className="stat-card clickable" onClick={() => fetchTaskDetails('feedback')}>
               <div className="stat-header">
                 <div className="stat-icon green-bg"><CheckSquareIcon /></div>
-                <span className="stat-badge green">완료</span>
+                <span className="stat-badge green">피드백</span>
               </div>
-              <h3 className="stat-number">{stats.completedTasks}</h3>
-              <p className="stat-label">완료한 업무</p>
+              <h3 className="stat-number">{stats.feedbackTasks}</h3>
+              <p className="stat-label">피드백 필요한 업무</p>
             </div>
 
             <div className="stat-card clickable" onClick={() => fetchTaskDetails('urgent')}>
@@ -333,6 +343,7 @@ const fetchProjectList = () => {
               <div className="section-card">
                 <div className="section-header">
                   <h2 className="section-title">프로젝트 현황</h2>
+                  <span className="section-count-badge"> {stats.totalProjects}</span>
                 </div>
                 {userId ? (
                   <div className="projects-list">

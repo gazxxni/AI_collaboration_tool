@@ -131,7 +131,8 @@
 }
 
 .stat-badge.red {
-  color: #dc2626;
+  background-color: #fee2e2; /* 연한 빨강 배경 */
+  color: #b91c1c;            /* 진한 빨강 텍스트 */
 }
 
 .stat-badge.pulse {
@@ -994,4 +995,16 @@
     align-items: flex-start;
     gap: 0.5rem;
   }
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-count-badge {
+  font-size: 20px;
+  color: #000000;      /* 진한 인디고 */
+  font-weight: 700;    /* ✅ 굵게 표시 */
 }

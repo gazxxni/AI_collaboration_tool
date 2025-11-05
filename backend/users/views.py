@@ -620,21 +620,25 @@ def get_user_task_details(request):
     """사용자의 업무 상세 정보 조회 (모달용)"""
     if request.method == "GET":
         user_id = request.session.get("user_id")
-        task_type = request.GET.get("type")  # 'my', 'completed', 'urgent'
+        task_type = request.GET.get("type")  # 'my', 'incomplete', 'feedback', 'completed', 'urgent'
         
         if not user_id:
             return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
-        
         if not task_type:
             return JsonResponse({"message": "type 파라미터가 필요합니다."}, status=400)
         
         try:
             today = datetime.now().date()
             three_days_later = today + timedelta(days=3)
-            
+
+            # 상태코드: 0=요청, 1=진행, 2=피드백, 3=완료
+            INCOMPLETE_STATUS = (0, 1)
+            FEEDBACK_STATUS   = (2,)
+            DONE_STATUS       = (3,)
+            ACTIVE_STATUS     = (0, 1, 2)
+
             with connection.cursor() as cursor:
                 if task_type == "my":
-                    # 내가 맡은 모든 업무
                     cursor.execute("""
                         SELECT DISTINCT t.task_id, t.task_name, t.status, t.end_date, p.project_name, p.project_id
                         FROM TaskManager tm 
@@ -643,63 +647,81 @@ def get_user_task_details(request):
                         WHERE tm.user_id = %s
                         ORDER BY t.end_date ASC
                     """, [user_id])
-                    
-                elif task_type == "completed":
-                    # 완료한 업무들
+
+                elif task_type == "incomplete":
                     cursor.execute("""
                         SELECT DISTINCT t.task_id, t.task_name, t.status, t.end_date, p.project_name, p.project_id
                         FROM TaskManager tm 
                         JOIN Task t ON tm.task_id = t.task_id 
                         JOIN Project p ON tm.project_id = p.project_id
-                        WHERE tm.user_id = %s AND t.status = 3
+                        WHERE tm.user_id = %s AND t.status IN %s
+                        ORDER BY t.end_date ASC
+                    """, [user_id, INCOMPLETE_STATUS])
+
+                elif task_type == "feedback":
+                    # ✅ 내가 속한 프로젝트들(ProjectMember) 중
+                    #    내가 담당자가 아닌(= TaskManager에 내 user_id가 없는) 피드백 상태(2) 업무만 조회
+                    cursor.execute("""
+                        SELECT DISTINCT t.task_id, t.task_name, t.status, t.end_date, p.project_name, p.project_id
+                        FROM Task t
+                        JOIN TaskManager tm   ON tm.task_id = t.task_id
+                        JOIN ProjectMember pm ON pm.project_id = tm.project_id
+                        JOIN Project p        ON p.project_id  = tm.project_id
+                        WHERE pm.user_id = %s       -- 내가 속한 프로젝트
+                        AND t.status  = 2         -- 피드백
+                        AND NOT EXISTS (          -- 내가 담당이 아닌 업무만
+                            SELECT 1
+                            FROM TaskManager tm2
+                            WHERE tm2.task_id = t.task_id
+                                AND tm2.user_id = %s
+                        )
+                        ORDER BY t.end_date ASC
+                    """, [user_id, user_id])
+
+                elif task_type == "completed":
+                    cursor.execute("""
+                        SELECT DISTINCT t.task_id, t.task_name, t.status, t.end_date, p.project_name, p.project_id
+                        FROM TaskManager tm 
+                        JOIN Task t ON tm.task_id = t.task_id 
+                        JOIN Project p ON tm.project_id = p.project_id
+                        WHERE tm.user_id = %s AND t.status IN %s
                         ORDER BY t.end_date DESC
-                    """, [user_id])
-                    
+                    """, [user_id, DONE_STATUS])
+
                 elif task_type == "urgent":
-                    # 3일 이내 마감 업무들
                     cursor.execute("""
                         SELECT DISTINCT t.task_id, t.task_name, t.status, t.end_date, p.project_name, p.project_id
                         FROM TaskManager tm 
                         JOIN Task t ON tm.task_id = t.task_id 
                         JOIN Project p ON tm.project_id = p.project_id
                         WHERE tm.user_id = %s 
-                        AND DATE(t.end_date) <= %s 
-                        AND DATE(t.end_date) >= %s
-                        AND t.status != 3
+                          AND DATE(t.end_date) <= %s 
+                          AND DATE(t.end_date) >= %s
+                          AND t.status IN (0,1,2)
                         ORDER BY t.end_date ASC
                     """, [user_id, three_days_later, today])
-                    
+
                 else:
                     return JsonResponse({"message": "잘못된 type입니다."}, status=400)
                 
-                tasks = cursor.fetchall()
-                
-                # 결과를 JSON 형태로 변환
-                task_list = []
+                rows = cursor.fetchall()
                 status_map = {0: "요청", 1: "진행", 2: "피드백", 3: "완료"}
+                task_list = [{
+                    "task_id": r[0],
+                    "task_name": r[1] or "제목 없음",
+                    "status": status_map.get(r[2], "알 수 없음"),
+                    "status_code": r[2],
+                    "end_date": r[3].strftime("%Y-%m-%d") if r[3] else None,
+                    "project_name": r[4],
+                    "project_id": r[5]
+                } for r in rows]
                 
-                for task in tasks:
-                    task_list.append({
-                        "task_id": task[0],
-                        "task_name": task[1] or "제목 없음",
-                        "status": status_map.get(task[2], "알 수 없음"),
-                        "status_code": task[2],
-                        "end_date": task[3].strftime("%Y-%m-%d") if task[3] else None,
-                        "project_name": task[4],
-                        "project_id": task[5]
-                    })
-                
-                return JsonResponse({
-                    "tasks": task_list,
-                    "total": len(task_list),
-                    "type": task_type
-                }, status=200)
-                
+                return JsonResponse({"tasks": task_list, "total": len(task_list), "type": task_type}, status=200)
         except Exception as e:
             print(f"Error fetching task details: {e}")
             return JsonResponse({"message": "서버 오류가 발생했습니다."}, status=500)
-    
     return JsonResponse({"message": "잘못된 요청 방식입니다."}, status=405)
+
 
 
 #==============================================================
