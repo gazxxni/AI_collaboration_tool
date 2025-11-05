@@ -45,7 +45,7 @@ function Topbarst() {
     const fetchProjectByRouteParam = async () => {
       try {
         const res = await axios.get(
-          `http://127.0.0.1:8000/chat/api/user/${userId}/projects/`,
+          `http://127.0.0.1:8000/api/user/${userId}/projects/`,
           { withCredentials: true }
         );
 
@@ -57,7 +57,7 @@ function Topbarst() {
           if (matched) {
             setProjectId(matched.project_id);
             setProjectName(matched.project_name || "");
-            setIsStarred(!!matched.is_favorite);
+            setIsStarred(Boolean(Number(matched.is_favorite)));
           } else {
             // 매칭되는 프로젝트가 없다면, 기존 이름 그대로 유지 (혹은 원하는 처리)
             // setProjectName("해당 프로젝트를 찾을 수 없습니다.");  // → 필요하다면 안내만

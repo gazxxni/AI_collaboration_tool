@@ -20,7 +20,7 @@ body, html {
   align-items: center;
   width: 100vw;
   height: 100vh;
-  background-color: #E8F1FF;
+  /* background-color: #E8F1FF; */
   flex-direction: column;
 }
 
@@ -79,7 +79,7 @@ body, html {
 }
 
 #Login_loginBut {
-  background-color: #9183d6; /* 기존 색상에서 연한 보라색으로 변경 */
+  background-color: #f29c46;; /* 기존 색상에서 연한 보라색으로 변경 */
   color: white;
   border: none;
   border-radius: 8px;
@@ -88,10 +88,11 @@ body, html {
   width: 90%;
   margin-top: 20px;
   font-weight: bold;
+  cursor: pointer;
 }
 
 #Login_loginBut:hover {
-  background-color: #7867c3; /* 호버 시 조금 더 진한 보라색으로 변경 */
+  background-color: #e6923e /* 호버 시 조금 더 진한 보라색으로 변경 */
 }
 
 

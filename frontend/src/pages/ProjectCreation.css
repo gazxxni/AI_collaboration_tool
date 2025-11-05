@@ -196,6 +196,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  visibility: hidden;
 }
 
 .ProjectSubmitButton:hover {
@@ -334,4 +335,27 @@
   .TechStackContainer {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.ProjectCreation_footer{
+  justify-content: right;
+  align-items: center;
+  display: flex;
+}
+
+.ProjectCreation_footer_btn {
+  background-color: #f29c46;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  height: 50px;
+  width: 30%;
+  margin-top: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.ProjectCreation_footer_btn:hover{
+  background-color: #e6923e;
 }

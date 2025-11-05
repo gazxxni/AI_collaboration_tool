@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect , useRef} from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { FaArrowLeft, FaArrowUp, FaSyncAlt, FaCalendarAlt } from 'react-icons/fa';
@@ -22,6 +22,7 @@ function ProjectCreation() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef(null);
 
   const navigate = useNavigate();
 
@@ -194,7 +195,7 @@ function ProjectCreation() {
           </div>
         </div>
 
-        <form className="ProjectForm" onSubmit={handleCreateTasks}>
+        <form ref={formRef} className="ProjectForm" onSubmit={handleCreateTasks}>
           <label className="ProjectLabel">프로젝트 이름</label>
           <div className="ProjectInputWrapper">
             <input
@@ -246,6 +247,16 @@ function ProjectCreation() {
                 {tech}
               </label>
             ))}
+          </div>
+          <div className='ProjectCreation_footer'>
+            <button
+              type="button"
+              className='ProjectCreation_footer_btn'
+              disabled={loading}
+              onClick={() => formRef.current?.requestSubmit()} // HTML5 표준
+            >
+              생성하기
+            </button>   
           </div>
         </div>
 
