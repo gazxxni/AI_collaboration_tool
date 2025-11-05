@@ -52,15 +52,17 @@
   
   /* 내 말풍선 (파란색) */
   .chat-message.mine .chat-bubble {
-    background: #9183d6;
-    color: white;
+    background: #ffffff;
+    color: rgb(43, 42, 42);
+    border:1px solid #f29c46;
     border-top-right-radius: 0;
   }
   
   /* 상대방 말풍선 (회색) */
   .chat-message.other .chat-bubble {
-    background: #F6D1E4;
-    color: black;
+    background: #ffffff;
+    color: rgb(43, 42, 42);
+    border:1px solid #f29c46;
     border-top-left-radius: 0;
   }
   
@@ -164,11 +166,11 @@
 
 /* 스크롤바 핸들 (움직이는 부분) */
 .chat-messages::-webkit-scrollbar-thumb {
-  background: #9183d6; 
+  background: #e6923e ; 
   border-radius: 10px;
 }
 
 /* 스크롤바 핸들 - 호버 시 */
 .chat-messages::-webkit-scrollbar-thumb:hover {
-  background: #7867c3; 
+  background: #e6923e ;
 }

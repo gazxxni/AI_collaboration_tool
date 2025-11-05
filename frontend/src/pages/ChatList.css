@@ -21,12 +21,12 @@
   }
   
   .chat-list li:hover {
-    background: #7867c3;
+    background: #e6923e ;
     color:white;
   }
   
   .chat-list li.selected {
-    background: #9183d6;
+    background: #f29c46;
     font-weight: bold;
     color:white;
   }
