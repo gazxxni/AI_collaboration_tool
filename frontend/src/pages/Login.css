@@ -71,7 +71,7 @@ body, html {
 .Login_userId, .Login_password {
   width: 90%; /* 너비를 조정하여 비율 맞춤 */
   height: 50px;
-  border: 1px solid rgb(163, 156, 231);
+  border: 1px solid #f29c46;
   border-radius: 8px;
   padding: 0 15px;
   margin-bottom: 15px;
@@ -79,7 +79,7 @@ body, html {
 }
 
 #Login_loginBut {
-  background-color: #f29c46;; /* 기존 색상에서 연한 보라색으로 변경 */
+  background-color: #f29c46; /* 기존 색상에서 연한 보라색으로 변경 */
   color: white;
   border: none;
   border-radius: 8px;
