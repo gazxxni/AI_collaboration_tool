@@ -328,7 +328,7 @@
 
 /* 생성하기 버튼 */
 .SubmitButton {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: #f29c46;
   color: white;
   border: none;
   padding: 0.875rem 2rem;
@@ -341,7 +341,7 @@
 }
 
 .SubmitButton:hover {
-  background: linear-gradient(135deg, #059669, #10b981);
+  background: #e6923e ;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
 }

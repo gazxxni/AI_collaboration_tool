@@ -176,7 +176,7 @@
 }
 
 .Invite_Invitebut{
-    background-color: #9183d6; /* 기존 색상에서 연한 보라색으로 변경 */
+    background-color: #f29c46; 
     color: white;
     border: none;
     border-radius: 8px;
@@ -184,10 +184,8 @@
     width: 30%;
     font-weight: bold;
     height: 5vh;
-    
-
   }
 
 .Invite_Invitebut:hover {
-    background-color: #7867c3; /* 호버 시 조금 더 진한 보라색으로 변경 */
+    background-color: #e6923e; 
 }

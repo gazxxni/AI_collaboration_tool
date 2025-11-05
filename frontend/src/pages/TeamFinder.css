@@ -125,7 +125,7 @@
 }
 
 .post-add-btn {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: #f29c46;
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -140,7 +140,7 @@
 .post-add-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-  background: linear-gradient(135deg, #059669, #10b981);
+  background: #e6923e ;
 }
 
 /* 게시글 카드 */
