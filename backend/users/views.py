@@ -122,12 +122,12 @@ def get_user_name(request):
 @csrf_exempt
 def get_users_list(request):
     with connection.cursor() as cursor:
-        cursor.execute("SELECT user_id, name FROM User")  # ✅ MySQL User 테이블 조회
-        users = cursor.fetchall()
+        cursor.execute("SELECT user_id, name, profile_image FROM User")
+        rows = cursor.fetchall()
 
-    # ✅ JSON 형식으로 변환
-    users_list = [{"user_id": row[0], "name": row[1]} for row in users]
-    return JsonResponse(users_list, safe=False,json_dumps_params={'ensure_ascii': False})
+    users_list = [{"user_id": r[0], "name": r[1], "profile_image": r[2]} for r in rows]
+    return JsonResponse(users_list, safe=False, json_dumps_params={'ensure_ascii': False})
+
 
 # def get_user_profile(request):
 #     # ✅ 세션에서 로그인한 사용자 ID 가져오기
