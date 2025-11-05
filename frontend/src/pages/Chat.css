@@ -137,7 +137,7 @@
   .chat-input button {
     margin-left: 0.5vw;
     padding: 10px 15px;
-    background-color: #9183d6; 
+    background-color: #f29c46;
     color: white;
     border: none;
     border-radius: 20px;
@@ -148,7 +148,7 @@
   }
   
   .chat-input button:hover {
-    background-color: #7867c3;
+    background-color: #e6923e;
   }
   
     /* 전체 스크롤바 스타일 */
