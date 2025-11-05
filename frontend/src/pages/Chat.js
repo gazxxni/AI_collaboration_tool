@@ -318,6 +318,8 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   const [activeTab, setActiveTab] = useState("project");      // "project" or "dm"
   const [selectedDmRoomId, setSelectedDmRoomId] = useState(null);
   const [dmPartnerName, setDmPartnerName] = useState("");     // DM 상대 이름
+  const isComposing = (e) =>
+    e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229;
 
 /* 이거 뭐지... 왜 넣은 거지...?*/
   // useEffect(() => {
@@ -628,9 +630,15 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                      onKeyDown={(e) => {
+                        // Shift+Enter는 줄바꿈으로 남겨두고 싶으면 아래 조건 유지
+                        if (e.key === "Enter" && !e.shiftKey && !isComposing(e)) {
+                          e.preventDefault(); // 브라우저 기본 제출/클릭 연쇄 방지
+                          sendMessage();
+                        }
+                      }}
                     />
-                    <button onClick={sendMessage}>전송</button>
+                    <button type="button" onClick={sendMessage}>전송</button>
                   </div>
                 </div>
 
