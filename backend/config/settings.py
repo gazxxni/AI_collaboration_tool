@@ -60,7 +60,7 @@ DATABASES = {
         'NAME': 'jung',  # DB 이름
         'USER': 'admin',  # MySQL 사용자 이름
         'PASSWORD': 'angksfnvm123!',  # 비밀번호
-        'HOST': 'database-1.cfe6wsoa0qhr.ap-northeast-2.rds.amazonaws.com',
+        'HOST': 'inwoo.cfe6wsoa0qhr.ap-northeast-2.rds.amazonaws.com',
         'PORT': '3306',
     }
 }
