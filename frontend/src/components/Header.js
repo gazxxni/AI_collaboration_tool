@@ -205,12 +205,12 @@ function Header({ nameInitials, currentDateTime }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 상단 드롭다운(“내 프로젝트”) 클릭 시
+  // 상단 드롭다운("내 프로젝트") 클릭 시
   const handleProjectClick = (projectId) => {
     handleSelectProject(projectId);
   };
 
-    const fetchNotifications = () => {
+  const fetchNotifications = () => {
     fetch("http://127.0.0.1:8000/api/users/notifications/", {
       method: "GET",
       credentials: "include",
@@ -227,11 +227,10 @@ function Header({ nameInitials, currentDateTime }) {
   const onClickBell = () => {
     const next = !showNotifPanel;
     setShowNotifPanel(next);
-    // if (next) fetchNotifications();
     if (next) setHasNotifications(false);
   };
 
-    // 패널 바깥 클릭 시 닫기
+  // 패널 바깥 클릭 시 닫기
   useEffect(() => {
     const onDocClick = (e) => {
       if (notifBoxRef.current && !notifBoxRef.current.contains(e.target)) {
@@ -243,45 +242,48 @@ function Header({ nameInitials, currentDateTime }) {
   }, []);
 
   // 공통: 프로젝트 세팅 후 이동
-const openProject = (projectId) => {
-  fetch("http://127.0.0.1:8000/api/users/projects/set/", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ project_id: projectId }),
-  })
-    .then((res) => res.json())
-    .then(() => {
-      setShowNotifPanel(false);
-      navigate(`/project/${projectId}/task`);
-    })
-    .catch((err) => console.error("Error setting project ID:", err));
-};
-
-// DM 열기
-const openDM = (roomId, partnerName) => {
-  setChatInit({ tab: "dm", roomId, partnerName });
-  setIsChatOpen(true);
-  setShowNotifPanel(false);
-};
-
-// Header.jsx
-const openProjectChat = async (projectId, projectName) => {
-  try {
-    await fetch("http://127.0.0.1:8000/api/users/projects/set/", {
+  const openProject = (projectId) => {
+    fetch("http://127.0.0.1:8000/api/users/projects/set/", {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ project_id: projectId }),
-    });
-  } catch (e) {
-    console.error("프로젝트 세션 설정 실패:", e);
-  }
-  // 그 다음 모달 오픈 + 초기화
-  setChatInit({ tab: "project", projectId, projectName });
-  setIsChatOpen(true);
-  setShowNotifPanel(false);
-};
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        project_id: projectId,
+      }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        setShowNotifPanel(false);
+        navigate(`/project/${projectId}/task`);
+      })
+      .catch((err) => console.error("Error setting project ID:", err));
+  };
+
+  // DM 열기
+  const openDM = (roomId, partnerName) => {
+    setChatInit({ tab: "dm", roomId, partnerName });
+    setIsChatOpen(true);
+    setShowNotifPanel(false);
+  };
+
+  // 프로젝트 채팅 열기
+  const openProjectChat = async (projectId, projectName) => {
+    try {
+      await fetch("http://127.0.0.1:8000/api/users/projects/set/", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ project_id: projectId }),
+      });
+    } catch (e) {
+      console.error("프로젝트 세션 설정 실패:", e);
+    }
+    setChatInit({ tab: "project", projectId, projectName });
+    setIsChatOpen(true);
+    setShowNotifPanel(false);
+  };
 
   return (
     <header className="Header_header">
@@ -318,7 +320,7 @@ const openProjectChat = async (projectId, projectName) => {
                         <li
                           key={project.project_id}
                           onMouseDown={(e) => {
-                            e.preventDefault(); // blur 타이밍 이슈 방지
+                            e.preventDefault();
                             handleProjectClick(project.project_id);
                           }}
                         >
@@ -385,7 +387,7 @@ const openProjectChat = async (projectId, projectName) => {
                   className={`Header_search-item ${idx === activeIndex ? "active" : ""}`}
                   onMouseEnter={() => setActiveIndex(idx)}
                   onMouseDown={(e) => {
-                    e.preventDefault(); // blur 전에 먼저 처리
+                    e.preventDefault();
                     handleSelectProject(p.project_id);
                   }}
                 >
@@ -406,7 +408,7 @@ const openProjectChat = async (projectId, projectName) => {
           <BellIcon />
           {hasNotifications && <span className="Header_notification-dot"></span>}
         </button>
-                {showNotifPanel && (
+        {showNotifPanel && (
           <div className="Header_notif-panel" ref={notifBoxRef}>
             <div className="Header_notif-header">
               <span>최근 알림</span>
@@ -442,8 +444,6 @@ const openProjectChat = async (projectId, projectName) => {
                       onMouseDown={(e) => {
                         e.preventDefault();
                         if (n.project_id) openProject(n.project_id);
-                        // (선택) task 하이라이트가 필요하면 쿼리스트링으로 넘겨서 UI에서 처리:
-                        // navigate(`/project/${n.project_id}/task?highlight=${n.task_id}`)
                       }}
                     >
                       <span className="notif-badge">댓글</span>
@@ -478,8 +478,6 @@ const openProjectChat = async (projectId, projectName) => {
                       onMouseDown={(e) => {
                         e.preventDefault();
                         openProjectChat(n.project_id, n.project_name);
-                        // 혹은 프로젝트 페이지로 보내고 싶다면:
-                        // openProject(n.project_id);
                       }}
                     >
                       <span className="notif-badge">그룹</span>
@@ -504,11 +502,11 @@ const openProjectChat = async (projectId, projectName) => {
         {isChatOpen && (
           <Chat
             onClose={() => { setIsChatOpen(false); setChatInit(null); }}
-            initTab={chatInit?.tab}                 // "dm" | "project"
-            initRoomId={chatInit?.roomId}           // dm 전용
-            initPartner={chatInit?.partnerName}     // dm 전용(표시용)
-            initProjectId={chatInit?.projectId}     // project 전용
-            initProjectName={chatInit?.projectName} // project 전용(표시용)
+            initTab={chatInit?.tab}
+            initRoomId={chatInit?.roomId}
+            initPartner={chatInit?.partnerName}
+            initProjectId={chatInit?.projectId}
+            initProjectName={chatInit?.projectName}
           />
         )}
 
@@ -518,7 +516,7 @@ const openProjectChat = async (projectId, projectName) => {
           onMouseEnter={() => setShowUserMenu(true)}
           onMouseLeave={() => setShowUserMenu(false)}
         >
-          <div className="Header_user-info" onClick={() => setIsProfileOpen(true)}>
+          <div className="Header_user-info">
             {profileImage ? (
               <img
                 src={profileImage}
