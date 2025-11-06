@@ -471,31 +471,34 @@
   font-size: clamp(0.75rem, 1vw, 0.875rem);
   color: #374151;
   position: relative;
+  font-weight: bold;
+  font-size: 13px;
 }
 
 .react-calendar__tile:hover {
-  background-color: #f3f4f6;
+  /* background-color: red; */
   border-radius: 8px;
 }
 
 .react-calendar__tile--active {
-  background: #2563eb;
   color: white;
   border-radius: 8px;
 }
 
-.react-calendar__tile--active:hover {
+/* .react-calendar__tile--active:hover {
   background: #1d4ed8;
-}
+}  */
 
 .react-calendar__tile--now {
-  background: #fef3c7;
+  background: #ff9124;
+  color: white;
+  font-weight: bold;
   border-radius: 8px;
 }
 
-.react-calendar__tile--now:hover {
-  background: #fde68a;
-}
+/* .react-calendar__tile--now:hover {
+  background: red;
+} */
 
 .react-calendar__tile.neighboring-month {
   color: #d1d5db;
@@ -1007,4 +1010,14 @@
   font-size: 20px;
   color: #000000;      /* 진한 인디고 */
   font-weight: 700;    /* ✅ 굵게 표시 */
+}
+
+.react-calendar .react-calendar__tile--now:hover{
+  background: #cf7106;
+}
+
+.react-calendar .react-calendar__tile--active:hover {
+  background: #2f6bca;   /* 살짝 하이라이트 */
+  box-shadow: 0 0 0 2px #2563eb55 inset;
+  cursor: pointer;
 }

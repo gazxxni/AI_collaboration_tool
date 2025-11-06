@@ -37,7 +37,7 @@
   .custom-schedule .react-calendar__tile--active {
     border: 4px solid #007bff;
     background: white !important;
-    color: black !important;
+    color: white !important;
     border-radius: 5px;
   }
   
@@ -108,6 +108,7 @@
     align-items: center;
     display: flex;
     justify-content: center;
+    /* margin-top: 5vh; */
     /* margin-top: 5vh;   이거 조심해야함 2개 묶여있음 (메인페이지-캘린더) , 업무->캘린더 2개 */
   }
   
