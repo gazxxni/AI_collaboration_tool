@@ -105,5 +105,9 @@
   
   .TeamCalendar_container.custom-schedule{
     background-color: transparent; /* 또는 원하는 다른 색상 */
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    
   }
   
