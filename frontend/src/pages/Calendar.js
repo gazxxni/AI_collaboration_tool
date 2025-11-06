@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useParams } from 'react-router-dom'; 
 import './Calendar.css';
 import MySchedule from "../components/MySchedule";
 import TeamSchedule from "../components/TeamSchedule";
@@ -13,6 +14,9 @@ function Calendar() {
   const [myProjects, setMyProjects] = useState([]);  // 프로젝트 목록 상태
   const [showTeamProjects, setShowTeamProjects] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(null); // 선택한 팀(프로젝트) ID 상태
+
+  const { projectId } = useParams();              // ★ /project/:id/calendar면 값 있음, /calendar면 undefined
+  const isProject = !!projectId; 
 
   // 사용자 데이터 (이름, ID) 불러오기
   useEffect(() => {
@@ -66,100 +70,102 @@ function Calendar() {
   };
 
   return (
-    <div className="Calandar_App">
-      <div className="Calandar_page" style={{ position: 'relative' }}>
-        <div
-          className="schedule-toggle"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            position: 'absolute',
-            top: '7vh',
-            right: '4vw',
-            zIndex: 1,
-          }}
-        >
-          {/* 내 일정 버튼 */}
-          <button
-            onClick={() => {
-              setScheduleView("my");
-              setSelectedProjectId(null);
-            }}
-            className={`no-style-button ${scheduleView === "my" ? "active" : ""}`}
-            style={{
-              padding: '0.5em 1em',
-              fontSize: '16px',
-            }}
-          >
-            <span style={{ fontWeight: 'bold' }}>내 일정 👤</span>
-          </button>
-
-          {/* 팀 일정 드롭다운 컨테이너 */}
+      <div className={`CalendarPage ${isProject ? 'calendar--project' : 'calendar--global'}`}>
+      <div className="Calandar_App">
+        <div className="Calandar_page" style={{ position: 'relative' }}>
           <div
-            className="team-dropdown"
-            onMouseEnter={() => setShowTeamProjects(true)}
-            onMouseLeave={() => setShowTeamProjects(false)}
-            style={{ position: 'relative', display: 'inline-block' }}
+            className="schedule-toggle"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              position: 'absolute',
+              top: '7vh',
+              right: '4vw',
+              zIndex: 1,
+            }}
           >
-            {/* 토글 버튼 */}
+            {/* 내 일정 버튼 */}
             <button
-              onClick={() => setScheduleView("team")}
-              className={`no-style-button ${scheduleView === "team" ? "active" : ""}`}
+              onClick={() => {
+                setScheduleView("my");
+                setSelectedProjectId(null);
+              }}
+              className={`no-style-button ${scheduleView === "my" ? "active" : ""}`}
               style={{
                 padding: '0.5em 1em',
                 fontSize: '16px',
-                marginRight:'2vw'
               }}
             >
-              <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>
-                {selectedProjectName} 👥
-              </span>
+              <span style={{ fontWeight: 'bold' }}>내 일정 👤</span>
             </button>
 
-            {/* 드롭다운 메뉴 */}
-            {showTeamProjects && (
-              <ul
-                className="Header_dropdown-content"
+            {/* 팀 일정 드롭다운 컨테이너 */}
+            <div
+              className="team-dropdown"
+              onMouseEnter={() => setShowTeamProjects(true)}
+              onMouseLeave={() => setShowTeamProjects(false)}
+              style={{ position: 'relative', display: 'inline-block' }}
+            >
+              {/* 토글 버튼 */}
+              <button
+                onClick={() => setScheduleView("team")}
+                className={`no-style-button ${scheduleView === "team" ? "active" : ""}`}
                 style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  margin: 0,
-                  padding: '0.5em 0',
-                  background: '#fff',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  zIndex: 10,
-                  whiteSpace: 'nowrap',
+                  padding: '0.5em 1em',
+                  fontSize: '16px',
+                  marginRight:'2vw'
                 }}
               >
-                {myProjects.length > 0 ? (
-                  myProjects.map((p) => (
-                    <li
-                      key={p.project_id}
-                      onClick={() => handleProjectClick(p.project_id)}
-                      style={{
-                        padding: '0.5em 1em',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {p.project_name}
-                    </li>
-                  ))
-                ) : (
-                  <li style={{ padding: '0.5em 1em' }}>프로젝트가 없습니다.</li>
-                )}
-              </ul>
-            )}
-          </div>
-        </div>
+                <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>
+                  {selectedProjectName} 👥
+                </span>
+              </button>
 
-        {/* 일정 뷰 */}
-        {scheduleView === "my" ? (
-          <MySchedule className="MySchedule" />
-        ) : (
-          <TeamSchedule className="TeamSchedule" teamId={selectedProjectId} />
-        )}
+              {/* 드롭다운 메뉴 */}
+              {showTeamProjects && (
+                <ul
+                  className="Header_dropdown-content"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    margin: 0,
+                    padding: '0.5em 0',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    zIndex: 10,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {myProjects.length > 0 ? (
+                    myProjects.map((p) => (
+                      <li
+                        key={p.project_id}
+                        onClick={() => handleProjectClick(p.project_id)}
+                        style={{
+                          padding: '0.5em 1em',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {p.project_name}
+                      </li>
+                    ))
+                  ) : (
+                    <li style={{ padding: '0.5em 1em' }}>프로젝트가 없습니다.</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* 일정 뷰 */}
+          {scheduleView === "my" ? (
+            <MySchedule className="MySchedule" />
+          ) : (
+            <TeamSchedule className="TeamSchedule" teamId={selectedProjectId} />
+          )}
+        </div>
       </div>
     </div>
   );

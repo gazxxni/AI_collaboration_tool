@@ -63,7 +63,7 @@ function TeamSchedule({ teamId }) {
 
   return (
     <section className="TeamCalendar_container custom-schedule">
-      <div style={{ height: "5vh" }}></div>
+      <div style={{ height: "20vh" }}></div>
 
       {/* 캘린더 */}
       <Calendar
