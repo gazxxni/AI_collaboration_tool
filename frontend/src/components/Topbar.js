@@ -1,23 +1,32 @@
 import React, { useState, useEffect } from "react";
 import "./Topbar.css";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 
 function Topbar() {
   const navigate = useNavigate();
-  const location = useLocation();            // 현재 경로 정보
-  const [activeItem, setActiveItem] = useState("업무");  // 기본 탭 설정
+  const location = useLocation();
+  const { projectId: routeProjectId } = useParams(); // ★ URL의 :projectId
+  const [activeItem, setActiveItem] = useState("업무");
   const [currentProjectId, setCurrentProjectId] = useState(null);
 
-  // 1) 프로젝트 정보 가져오기
+  // 1) URL의 projectId를 항상 최우선으로 반영
   useEffect(() => {
+    if (routeProjectId) {
+      setCurrentProjectId(Number(routeProjectId));
+    }
+  }, [routeProjectId]);
+
+  // 2) URL에 없을 때만 서버에서 기본 프로젝트 가져오기 (폴백)
+  useEffect(() => {
+    if (routeProjectId) return; // 이미 URL이 있으니 불필요
     const fetchProjectData = async () => {
       try {
         const res = await axios.get(
           "http://127.0.0.1:8000/api/users/projects/get/",
           { withCredentials: true }
         );
-        if (res.data && res.data.project_id) {
+        if (res.data?.project_id) {
           setCurrentProjectId(res.data.project_id);
         }
       } catch (error) {
@@ -25,35 +34,28 @@ function Topbar() {
       }
     };
     fetchProjectData();
-  }, []);
+  }, [routeProjectId]);
 
-  // 2) location.pathname 에 따라 activeItem 자동 설정
+  // 3) 현재 경로에 따라 active 탭 표시
   useEffect(() => {
     const path = location.pathname;
-    if (path.includes("/task")) {
-      setActiveItem("업무");
-    } else if (path.includes("/minutes")) {
-      setActiveItem("회의록");
-    } else if (path.includes("/calendar")) {
-      setActiveItem("캘린더");
-    } else if (path.includes("/file")) {
-      setActiveItem("파일");
-    } else if (path.includes("/activity")) {
-      setActiveItem("활동기록");
-    } else if (path.includes("/report")) {
-      setActiveItem("보고서");
-    } else {
-      setActiveItem(null);
-    }
+    if (path.includes("/task")) setActiveItem("업무");
+    else if (path.includes("/minutes")) setActiveItem("회의록");
+    else if (path.includes("/calendar")) setActiveItem("캘린더");
+    else if (path.includes("/file")) setActiveItem("파일");
+    else if (path.includes("/activity")) setActiveItem("활동기록");
+    else if (path.includes("/report")) setActiveItem("보고서");
+    else setActiveItem(null);
   }, [location.pathname]);
 
-  // 3) 프로젝트가 없으면 경고, 있으면 이동
+  // 4) 항상 현재 URL의 projectId(있으면)를 사용해서 이동
   const safeNavigate = (pathBuilder) => {
-    if (!currentProjectId) {
+    const pid = Number(routeProjectId) || Number(currentProjectId);
+    if (!pid) {
       alert("프로젝트가 선택되지 않았습니다.");
       return;
     }
-    navigate(pathBuilder(currentProjectId));
+    navigate(pathBuilder(pid));
   };
 
   return (
