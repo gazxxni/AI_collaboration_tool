@@ -468,7 +468,7 @@ const weekGroups = buildWeekGroups(fullDateRange);
           </div>
             <div className="ControlRight">
               <button
-                className="FilterButton"
+                className="TaskPage_FilterButton"
                 onClick={() => setFilterOpen(!filterOpen)}
               >
                 필터

@@ -54,24 +54,24 @@
 }
 
 /* [수정됨] .ZoomAndNew button과 모양, 스타일 모두 통일 */
-.FilterButton {
+.TaskPage_FilterButton {
     padding: 0.75rem 1rem; /* 1.25rem -> 1rem 으로 수정 (모양 통일) */
     border: none;
-    color: black;
+    color: white;
     cursor: pointer;
     border-radius: 12px;
-    background: white;
+    background: #f29c46;
     font-weight: 600;
     transition: all 0.3s ease;
     box-shadow: 0 2px 10px #acacac;
 }
 
 /* [수정됨] .ZoomAndNew button:hover와 통일 */
-.FilterButton:hover {
+.TaskPage_FilterButton:hover {
     transform: translateY(-2px);
     color: white;
     box-shadow: 0 6px 20px gray;
-    background: gray;
+    background: #e6923e ;
 }
 
 /* 명시도 문제 해결됨 */
@@ -368,7 +368,7 @@
 
 /* 상세 패널 위치 */
 .TaskPage_rightSide {
-    position: absolute;
+    position: fixed;
     top: 60px;
     right: 20px;
     width: 500px;
@@ -378,6 +378,8 @@
     border: 1px solid #e5e7eb;
     z-index: 999;
     overflow: hidden;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto; 
 }
 
 /* 반응형 디자인 */
