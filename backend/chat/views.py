@@ -5,6 +5,24 @@ import datetime
 from django.views.decorators.csrf import csrf_exempt
 import json
 
+def mdhm(dt):
+    ldt = localtime(dt)
+    return f"{ldt.month}/{ldt.day} {ldt.strftime('%H:%M')}"
+
+def serialize_message_row(message_id, content, created_dt, username, user_id):
+    """SQL 커서 row(메시지) → 공통 응답 포맷으로 직렬화"""
+    if isinstance(created_dt, datetime.datetime) and created_dt.tzinfo is None:
+        created_dt = make_aware(created_dt)
+    ldt = localtime(created_dt)
+    return {
+        "message_id": message_id,
+        "message": content,
+        "timestamp": mdhm(ldt),          # 표시용 (예: 11/6 21:29)
+        "timestamp_iso": ldt.isoformat(),# ✅ 파싱/정렬용
+        "username": username,
+        "user_id": user_id,
+    }
+
 def get_user_projects(request, user_id):
     print(f"📡 API 요청됨: user_id={user_id}")
 
@@ -45,39 +63,19 @@ def get_user_projects(request, user_id):
 
 # ✅ 프로젝트 ID로 메시지 목록 조회
 def get_project_messages(request, project_id):
-    print(f"📡 API 요청됨: project_id={project_id}의 메시지 불러오기")
-
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT m.message_id, m.content, m.created_date, u.name,m.user_id
+            SELECT m.message_id, m.content, m.created_date, u.name, m.user_id
             FROM Message m
             JOIN User u ON m.user_id = u.user_id
             WHERE m.project_id = %s
             ORDER BY m.created_date ASC
         """, [project_id])
 
-        messages = []
-        for row in cursor.fetchall():
-            message_id, message, created_date, username,user_id = row
+        messages = [serialize_message_row(*row) for row in cursor.fetchall()]
 
-            # ✅ 시간 변환 (timezone-aware)
-            if isinstance(created_date, datetime.datetime) and created_date.tzinfo is None:
-                created_date = make_aware(created_date)
-
-            # ✅ 날짜 포맷 변경 (2/15 02:56)
-            formatted_time = localtime(created_date).strftime('%#m/%#d %H:%M')  # Windows (주석 해제 후 사용)
-
-            messages.append({
-                "message_id": message_id,
-                "message": message,
-                "timestamp": formatted_time,
-                "username": username,
-                "user_id":user_id
-                
-            })
-
-    print(f"📡 조회된 메시지 목록: {messages}")
     return JsonResponse({"messages": messages}, json_dumps_params={'ensure_ascii': False})
+
 
 def get_project_name(request, project_id):
     with connection.cursor() as cursor:
@@ -97,10 +95,6 @@ def get_project_name(request, project_id):
 
 # ─── 1:1 DM 방 목록 조회 ────────────────────────────────
 def get_dm_rooms(request, user_id):
-    """
-    GET /chat/api/user/{user_id}/dm_rooms/
-    이 사용자가 속한 DM 방 목록(상대방 ID/이름, 최근 메시지 시간)을 반환
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -110,38 +104,52 @@ def get_dm_rooms(request, user_id):
                 ELSE dr.user1_id
               END AS partner_id,
               u.name AS partner_name,
-              -- 마지막 DM 메시지 시간
-              (SELECT dm.created_date
-                 FROM DirectMessage dm
-                WHERE dm.room_id = dr.room_id
-                ORDER BY dm.created_date DESC
-                LIMIT 1
-              ) AS latest_message_time
+              lm.message_id       AS last_message_id,
+              lm.content          AS last_message,
+              lm.created_date     AS last_created
             FROM DirectMessageRoom dr
             JOIN `User` u
               ON u.user_id = CASE
                                WHEN dr.user1_id = %s THEN dr.user2_id
                                ELSE dr.user1_id
                              END
+            LEFT JOIN (
+              SELECT t.room_id, t.message_id, t.content, t.created_date
+              FROM DirectMessage t
+              JOIN (
+                 SELECT room_id, MAX(created_date) AS max_dt
+                 FROM DirectMessage
+                 GROUP BY room_id
+              ) x
+              ON t.room_id = x.room_id AND t.created_date = x.max_dt
+            ) lm
+            ON lm.room_id = dr.room_id
            WHERE dr.user1_id = %s OR dr.user2_id = %s
         """, [user_id, user_id, user_id, user_id])
 
-        rooms = []
-        for row in cursor.fetchall():
-            room_id, partner_id, partner_name, lmt = row
+        rows = []
+        for room_id, partner_id, partner_name, last_id, last_msg, last_dt in cursor.fetchall():
+            latest_display = None
+            latest_iso = None
+            if last_dt:
+                if isinstance(last_dt, datetime.datetime) and last_dt.tzinfo is None:
+                    last_dt = make_aware(last_dt)
+                ldt = localtime(last_dt)
+                latest_display = ldt.strftime('%Y-%m-%d %H:%M:%S')
+                latest_iso = ldt.isoformat()
 
-            if lmt and isinstance(lmt, datetime.datetime) and lmt.tzinfo is None:
-                lmt = make_aware(lmt)
-            latest = localtime(lmt).strftime('%Y-%m-%d %H:%M:%S') if lmt else None
-
-            rooms.append({
+            rows.append({
                 "room_id": room_id,
                 "partner_id": partner_id,
                 "partner_name": partner_name,
-                "latest_message_time": latest,
+                "last_message_id": last_id,
+                "last_message": last_msg,
+                "latest_message_time": latest_display,
+                "latest_message_time_iso": latest_iso,   # ✅ 프론트 정렬용
             })
 
-    return JsonResponse({"dm_rooms": rooms}, json_dumps_params={'ensure_ascii': False})
+    return JsonResponse({"dm_rooms": rows}, json_dumps_params={'ensure_ascii': False})
+
 
 
 # ─── 1:1 DM 방 생성/조회 ────────────────────────────────
@@ -230,44 +238,16 @@ def create_dm_room(request):
 from django.utils.timezone import localtime
 
 def get_dm_messages(request, room_id):
-    """
-    GET /chat/api/dm_rooms/{room_id}/messages/
-    해당 DM 방의 메시지 리스트를 반환
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT
-              dm.message_id,
-              dm.content,
-              dm.created_date,
-              u.name,
-              dm.user_id
+            SELECT dm.message_id, dm.content, dm.created_date, u.name, dm.user_id
             FROM DirectMessage dm
             JOIN `User` u ON dm.user_id = u.user_id
-           WHERE dm.room_id = %s
-           ORDER BY dm.created_date ASC
+            WHERE dm.room_id = %s
+            ORDER BY dm.created_date ASC
         """, [room_id])
 
-        msgs = []
-        for row in cursor.fetchall():
-            msg_id, content, cd, username, uid = row
-
-            # timezone-aware 처리
-            if isinstance(cd, datetime.datetime) and cd.tzinfo is None:
-                cd = make_aware(cd)
-
-            # 1) 원래 ISO 타임스탬프 (필요하다면 남겨두세요)
-            # ts = localtime(cd).strftime('%Y-%m-%d %H:%M:%S')
-
-            # 2) 원하는 "M/D H:mm" 포맷
-            formatted_time = localtime(cd).strftime('%#m/%#d %H:%M')
-
-            msgs.append({
-                "message_id": msg_id,
-                "message": content,
-                "timestamp": formatted_time,      # 여기에 포맷된 문자열을 넣습니다
-                "username": username,
-                "user_id": uid,
-            })
+        msgs = [serialize_message_row(*row) for row in cursor.fetchall()]
 
     return JsonResponse({"messages": msgs}, json_dumps_params={'ensure_ascii': False})
+

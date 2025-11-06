@@ -10,6 +10,8 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   const [message, setMessage] = useState("");
   const [socket, setSocket] = useState(null);
   const chatMessagesRef = useRef(null); // ✅ 스크롤 조작을 위한 ref
+  const wsRef = useRef(null);
+  const connectedRef = useRef(false);
 
   // ★ 추가: 개인 채팅(DM) 탭 관련 상태
   const [activeTab, setActiveTab] = useState("project");      // "project" or "dm"
@@ -17,6 +19,31 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   const [dmPartnerName, setDmPartnerName] = useState("");     // DM 상대 이름
   const isComposing = (e) =>
     e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229;
+
+  // ↑ 컴포넌트 상단에 유틸 하나
+const toDate = (m) => {
+  if (m?.timestampDate instanceof Date) return m.timestampDate;
+  if (m?.timestamp_iso) {
+    const d = new Date(m.timestamp_iso);
+    if (!isNaN(d)) return d;
+  }
+  if (typeof m?.timestamp === "string") {
+    const parts = m.timestamp.match(/^(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{2})$/);
+    if (parts) {
+      const [, M, D, H, Min] = parts;
+      const y = new Date().getFullYear();
+      const d = new Date(`${y}-${String(M).padStart(2,"0")}-${String(D).padStart(2,"0")}T${String(H).padStart(2,"0")}:${Min}:00+09:00`);
+      if (!isNaN(d)) return d;
+    }
+  }
+  return new Date(); // 최후의 안전망
+};
+
+const normalize = (raw) => ({
+  ...raw,
+  timestampDate: toDate(raw),
+});
+
 
   useEffect(() => {
     if (initTab === "dm" && initRoomId) {
@@ -31,54 +58,23 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   }, []);   // ← 처음 한 번만 실행
 
 
-  // ✅ 시간 포맷 변환 함수 (오전/오후 + 시간:분 형식)
-  const formatTime = (timestamp) => {
-    // ✅ `timestamp`가 이미 Date 객체인지 확인 후 변환
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  
-    // ✅ 유효하지 않은 날짜라면 현재 시간 사용
-    if (isNaN(date.getTime())) {
-      return new Date().toLocaleTimeString("ko-KR", {
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true
-      });
-    }
-  
-    return date.toLocaleTimeString("ko-KR", {
-      hour: "numeric",
-      minute: "numeric",
-      hour12: true
-    });
-  };
-  
-  // ✅ 날짜 구분선 함수
-  const shouldShowDate = (currentMessage, previousMessage) => {
-    if (!previousMessage) return true;
-  
-    // ✅ `timestamp`가 이미 Date 객체인지 확인 후 변환
-    const currentTimestamp = currentMessage.timestamp instanceof Date
-      ? currentMessage.timestamp
-      : new Date(currentMessage.timestamp);
-    const previousTimestamp = previousMessage.timestamp instanceof Date
-      ? previousMessage.timestamp
-      : new Date(previousMessage.timestamp);
-  
-    if (isNaN(currentTimestamp.getTime()) || isNaN(previousTimestamp.getTime())) {
-      console.warn("🚨 유효하지 않은 timestamp 감지!", currentMessage.timestamp, previousMessage.timestamp);
-      return false;
-    }
-  
-    // ✅ YYYY-MM-DD 형식 비교
-    const currentDate = currentTimestamp.toLocaleDateString("ko-KR", {
-      year: "numeric", month: "numeric", day: "numeric"
-    });
-    const previousDate = previousTimestamp.toLocaleDateString("ko-KR", {
-      year: "numeric", month: "numeric", day: "numeric"
-    });
-  
-    return currentDate !== previousDate;
-  };
+  // 시간 포맷
+const formatTime = (tsDate) => {
+  const d = tsDate instanceof Date ? tsDate : new Date(tsDate);
+  if (isNaN(d)) return "";
+  return d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "numeric", hour12: true });
+};
+
+// 날짜 구분
+const shouldShowDate = (cur, prev) => {
+  if (!prev) return true;
+  const c = cur.timestampDate, p = prev.timestampDate;
+  if (!(c instanceof Date) || isNaN(c) || !(p instanceof Date) || isNaN(p)) return false;
+  const cd = c.toLocaleDateString("ko-KR", { year:"numeric", month:"numeric", day:"numeric" });
+  const pd = p.toLocaleDateString("ko-KR", { year:"numeric", month:"numeric", day:"numeric" });
+  return cd !== pd;
+};
+
   
   // ✅ 로그인된 사용자 ID 가져오기
   useEffect(() => {
@@ -105,6 +101,7 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
       setDmPartnerName("선택된 채팅방 없음")
       return;
     }
+    if (connectedRef.current) return;       
     fetch(`http://127.0.0.1:8000/chat/api/project/${selectedProjectId}/name/`)
       .then((res) => res.json())
       .then((data) => {
@@ -127,29 +124,16 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
     if (activeTab === "project") {
       if (!selectedProjectId) return;
       fetch(`http://127.0.0.1:8000/chat/api/project/${selectedProjectId}/messages/`)
-        .then((res) => res.json())
-        .then((data) => {
-          const formattedMessages = data.messages;
-          // const formattedMessages = data.messages.map((msg) => ({
-          //   ...msg,
-          //   isMine: msg.user_id === userId
-          // }));
-          setMessages(formattedMessages);
-        })
-        .catch((err) => console.error("🚨 메시지를 불러오지 못했습니다.", err));
+        .then(res => res.json())
+        .then(data => setMessages(data.messages.map(normalize)));
+
     } else {
       // DM 메시지 로드
       if (!selectedDmRoomId) return;
       fetch(`http://127.0.0.1:8000/chat/api/dm_rooms/${selectedDmRoomId}/messages/`)
-        .then((res) => res.json())
-        .then((data) => {
-          const formattedMessages = data.messages.map((msg) => ({
-            ...msg,
-            isMine: msg.user_id === userId
-          }));
-          setMessages(formattedMessages);
-        })
-        .catch((err) => console.error("🚨 DM 메시지를 불러오지 못했습니다.", err));
+        .then(res => res.json())
+        .then(data => setMessages(data.messages.map(m => normalize({ ...m, isMine: m.user_id === userId }))));
+
     }
   }, [selectedProjectId, selectedDmRoomId, userId, activeTab]); // ✅ selectedDmRoomId, activeTab 추가
   
@@ -174,14 +158,23 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
     newSocket.onclose = () => console.log("❌ WebSocket 연결이 닫혔습니다.");
   
     newSocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setMessages((prev) => {
-        // ✅ 중복 메시지 방지
-        if (data.message_id && prev.some((msg) => msg.message_id === data.message_id)) {
-          return prev;
-        }
-        // return [...prev, { ...data, isMine: data.user_id === userId }];
-        return [...prev, data];
+    const data = JSON.parse(event.data);
+    const msg = normalize(data); // ← 여기서 표준화
+    setMessages((prev) => {
+    // 1) 서버가 돌려준 temp_id가 있으면, 그 temp_id로 낙관적 메시지 교체
+    if (msg.temp_id) {
+      const idx = prev.findIndex(m => m.message_id === msg.temp_id);
+      if (idx !== -1) {
+        const copy = [...prev];
+        // 기존 낙관적 메시지를 서버 확정 데이터로 교체
+        copy[idx] = { ...copy[idx], ...msg, pending: false };
+        return copy;
+      }
+    }
+    // 2) 같은 message_id 이미 있으면 무시
+    if (msg.message_id && prev.some(m => m.message_id === msg.message_id)) return prev;
+    // 3) 일반적인 경우는 뒤에 추가
+    return [...prev, msg];
       });
     };
   
@@ -228,24 +221,27 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
   
   // ✅ 메시지 전송
   const sendMessage = () => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      console.error("🚨 WebSocket이 열려 있지 않습니다!");
-      return;
-    }
-    if (!message.trim()) return;
-  
-    const timestamp = new Date().toISOString();
-    const messageData = {
-      message,
-      user_id: userId,
-      timestamp,
-      message_id: Date.now() // 임시 ID
-    };
-  
-    console.log("📤 서버로 전송할 메시지:", JSON.stringify(messageData));
-    socket.send(JSON.stringify(messageData));
-    setMessage("");
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  if (!message.trim()) return;
+
+  const tempId = `local-${Date.now()}`;
+  const mine = {
+    message_id: tempId,
+    message,
+    user_id: userId,
+    username: "(나)",
+    timestampDate: new Date(),  // ← 임시 시간(화면 표시용)
+    pending: true,              // ← 임시 표시 플래그
   };
+
+  // 1) 화면에 먼저 추가(낙관적 렌더)
+  setMessages((prev) => [...prev, mine]);
+
+  // 2) 서버로 보낼 페이로드 (시간은 서버가 결정 → 보내지 말 것 권장)
+  const payload = { message, user_id: userId, temp_id: tempId };
+  socket.send(JSON.stringify(payload));
+  setMessage("");
+};
 
   useEffect(() => {
     const onKey = (e) => {
@@ -290,24 +286,18 @@ const Chat = ({ onClose, initTab = "project", initRoomId = null, initPartner = "
                         <React.Fragment key={msg.message_id || index}>
                           {showDate && (
                             <div className="chat-date-divider">
-                              {new Date(msg.timestamp).toLocaleDateString("ko-KR", {
-                                month: "numeric",
-                                day: "numeric",
-                              })}
+                              {msg.timestampDate.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
                             </div>
                           )}
-                          {/* <div className={`chat-message ${msg.isMine ? "mine" : "other"}`}>
-                            {!msg.isMine && <div className="chat-username">{msg.username}</div>} */}
                           <div className={`chat-message ${msg.user_id === userId ? "mine" : "other"}`}>
                             {msg.user_id !== userId && <div className="chat-username">{msg.username}</div>}
                             <div className="chat-bubble">{msg.message}</div>
-                            <span className="chat-timestamp">{formatTime(msg.timestamp)}</span>
+                            <span className="chat-timestamp">{formatTime(msg.timestampDate)}</span>
                           </div>
                         </React.Fragment>
                       );
                     })}
                   </div>
-
                   {/* ✅ 메시지 입력창 */}
                   <div className="chat-input">
                     <input
