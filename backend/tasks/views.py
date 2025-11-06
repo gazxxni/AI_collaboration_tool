@@ -9,6 +9,8 @@ from .serializers import TaskSerializer, TaskNameSerializer, TaskManagerSerializ
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.authentication import SessionAuthentication
 from Log.view import create_log  # 로그 기록 함수
+
+from comments.serializers import FileSerializer 
 import logging
 
 from db_model.models import (
@@ -17,6 +19,7 @@ from db_model.models import (
     Project, 
     FavoriteProject,
     TaskManager, 
+    File,
 )
 
 class CsrfExemptSessionAuthentication(SessionAuthentication):
@@ -466,11 +469,6 @@ class TaskNoProjectViewSet(viewsets.ModelViewSet):
         return Response(data)
 
 
-
-
-
-            
-
 @api_view(['POST'])
 def create_task_manager(request):
     """
@@ -488,3 +486,123 @@ def create_task_manager(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+def get_descendant_task_ids(root_id: int) -> list[int]:
+    """
+    root_id 포함하여 모든 하위 task_id를 리스트로 반환
+    (MySQL5.x도 동작. 인덱스: Task(parent_task_id) 필요)
+    """
+    ids = {root_id}
+    frontier = [root_id]
+    while frontier:
+        children = list(
+            Task.objects
+                .filter(parent_task_id__in=frontier)
+                .values_list("task_id", flat=True)
+        )
+        new_ones = [t for t in children if t not in ids]
+        if not new_ones:
+            break
+        ids.update(new_ones)
+        frontier = new_ones
+    return list(ids)
+
+
+# @api_view(['GET'])
+# def task_files(request):
+#     """
+#     GET /api/task-files/?task_id=17&include_children=true
+#     - include_children=true 이면 자식/손자까지 모두 포함해서 File 반환
+#     - false/생략이면 해당 task_id에 매달린 파일만 반환
+#     """
+#     task_id = request.query_params.get('task_id')
+#     if not task_id:
+#         return Response({"error": "task_id 누락"}, status=status.HTTP_400_BAD_REQUEST)
+
+#     include_children = str(request.query_params.get('include_children', '')).lower() in ('1', 'true', 'yes')
+
+#     try:
+#         task_id = int(task_id)
+#     except ValueError:
+#         return Response({"error": "잘못된 task_id"}, status=400)
+
+#     try:
+#         if include_children:
+#             ids = get_descendant_task_ids(task_id)  # 모든 하위 포함
+#         else:
+#             ids = [task_id]
+
+#         qs = (
+#             File.objects
+#                 .select_related("user")          # author 이름 N+1 방지
+#                 .filter(task_id__in=ids)
+#                 .order_by("-created_date")
+#         )
+
+#         # created_date에 TZ가 없을 수 있으니 serializer를 쓰는 게 안전
+#         data = FileSerializer(qs, many=True).data
+#         return Response(data, status=200)
+
+#     except Exception as e:
+#         logging.getLogger(__name__).exception("task_files error")
+#         return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+def task_files(request):
+    task_id = request.query_params.get("task_id")
+    project_id = request.query_params.get("project_id")  # 선택: 프론트에서 같이 보내면 스코프 보장
+    include_children = str(request.query_params.get("include_children","")).lower() in ("1","true","yes")
+
+    if not task_id:
+        return Response({"error":"task_id 누락"}, status=400)
+
+    # 자식 미포함이면 ORM 그대로
+    if not include_children:
+        from db_model.models import File
+        from comments.serializers import FileSerializer
+        qs = (File.objects.select_related("user")
+              .filter(task_id=task_id)
+              .order_by("-created_date"))
+        return Response(FileSerializer(qs, many=True).data, status=200)
+
+    # 자식 포함: 재귀 CTE
+    if not project_id:
+        # 프로젝트 스코프 없이도 가능하지만, 정합성상 권장: project_id 전달
+        # 필요 없다면 아래 SQL을 '프로젝트 조건 없는 버전'으로 바꿔 써도 됨.
+        return Response({"error":"project_id 권장 (스코프 보장)"}, status=400)
+
+    sql = """
+    WITH RECURSIVE t AS (
+      SELECT tm.task_id
+      FROM TaskManager tm
+      WHERE tm.project_id = %s
+        AND tm.task_id    = %s
+      UNION ALL
+      SELECT c.task_id
+      FROM Task c
+      JOIN t ON c.parent_task_id = t.task_id
+      JOIN TaskManager tm2 ON tm2.task_id = c.task_id
+                          AND tm2.project_id = %s
+    )
+    SELECT
+      f.file_id,
+      f.file_name,
+      f.created_date,
+      f.user_id,
+      u.name AS author
+    FROM File f
+    JOIN t   ON f.task_id = t.task_id
+    JOIN User u ON u.user_id = f.user_id
+    ORDER BY f.created_date DESC
+    """
+    with connection.cursor() as cur:
+        cur.execute(sql, [project_id, task_id, project_id])
+        rows = cur.fetchall()
+
+    data = [{
+        "file_id":      r[0],
+        "file_name":    r[1],
+        "created_date": r[2].isoformat() if r[2] else None,
+        "user":         r[3],
+        "author":       r[4],
+    } for r in rows]
+    return Response(data, status=200)

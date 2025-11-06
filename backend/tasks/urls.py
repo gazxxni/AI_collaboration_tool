@@ -9,6 +9,7 @@ from .views import (
     get_team_members,
     change_task_name,
     create_task_manager,
+    task_files,
 )
 
 router = DefaultRouter()
@@ -32,6 +33,7 @@ urlpatterns = [
     path("team-members/",  get_team_members,  name="get_team_members"),
     path("tasks/<int:task_id>/change-name/", change_task_name, name="change_task_name"),
     path("task-managers/", create_task_manager, name="create_task_manager"),
+    path('task-files/', task_files, name='task-files'),
 
     # ========== ViewSet URL ==========
     path("", include(router.urls)),     # 🔹 이 한 줄이면 /tasks-no-project/ 모든 REST 엔드포인트 제공

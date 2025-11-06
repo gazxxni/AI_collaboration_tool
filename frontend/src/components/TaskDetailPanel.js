@@ -336,7 +336,7 @@ function TaskDetailPanel({ task, projectId, onClose, onUpdate,  fetchTasks  }) {
       alert("AI 가이드라인이 성공적으로 생성되었습니다!");
     } catch (err) {
       console.error("AI 가이드라인 생성 실패:", err);
-      alert("AI 가이드라인 생성에 실패했습니다.");
+      alert("서비스 준비 중입니다.");
     }
   };
 

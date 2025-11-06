@@ -45,15 +45,19 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
     const id = task.task_id;
     const newExp = new Set(expanded);
 
-    if (newExp.has(id)) {
-      newExp.delete(id);
-      setExpanded(newExp);
-      return;
-    }
+      if (expanded.has(id)) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    return;
+  }
 
     if (!filesByTask[id]) {
       axios.get("http://127.0.0.1:8000/api/task-files/", {
-        params: { task_id: id },
+        // params: { task_id: id, include_children: true },
+        params: { task_id: id, project_id: projectId ?? currentProjectId, include_children: true },
         withCredentials: true,
       })
       .then(res => {
@@ -64,12 +68,18 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
         setFilesByTask(prev => ({ ...prev, [id]: [] }));
       })
       .finally(() => {
-        newExp.add(id);
-        setExpanded(newExp);
+        setExpanded(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
       });
     } else {
-      newExp.add(id);
-      setExpanded(newExp);
+         setExpanded(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
     }
   };
 
@@ -77,10 +87,11 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
   const handleDownload = async (e, fileId, fileName) => {
     e.stopPropagation();
     try {
-      const res = await axios.get("http://127.0.0.1:8000/api/download-files/", {
+       const res = await axios.get("http://127.0.0.1:8000/api/download-files/", {
         params: { file_id: fileId },
         withCredentials: true,
       });
+
       window.location.href = res.data.url;
     } catch (e) {
       console.error("다운로드 에러:", e);
@@ -89,20 +100,26 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
   };
 
   // 파일 크기 포맷팅
-  const formatFileSize = (bytes) => {
-    if (!bytes) return "-";
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const formatFileSize = (bytes) => {
+    if (typeof bytes !== 'number' || Number.isNaN(bytes)) return null; // 값 없으면 표시 안 함
     if (bytes === 0) return '0 Byte';
-    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-    return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+    const units = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const val = bytes / Math.pow(1024, i);
+    return `${(Math.round(val * 100) / 100).toFixed(2)} ${units[i]}`;
   };
-
   // 날짜 포맷팅
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatDate = (s) => {
+  if (!s) return "-";
+  let str = s;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(s)) {
+    str = s + '+09:00'; // 서버가 KST라면
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString('ko-KR') + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+};
+
 
   // 파일 타입별 아이콘
   const getFileIcon = (fileName) => {
@@ -117,11 +134,10 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
 
   // 검색 필터링
   const filterFiles = (files) => {
-    if (!searchTerm) return files;
-    return files.filter(file => 
-      file.file_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
+  if (!searchTerm) return files;
+  const q = searchTerm.toLowerCase();
+  return files.filter(f => (f.file_name || '').toLowerCase().includes(q));
+};
 
   return (
     <div className="ProjectFile_wrapper">
@@ -218,8 +234,12 @@ export default function ProjectFile({ nameInitials, currentProjectId }) {
                                     <span>{file.author}</span>
                                     <span className="ProjectFile_separator">•</span>
                                     <span>{formatDate(file.created_date)}</span>
-                                    <span className="ProjectFile_separator">•</span>
-                                    <span>{formatFileSize(file.size)}</span>
+                                     {formatFileSize(file.size) && (
+                                      <>
+                                        <span className="ProjectFile_separator">•</span>
+                                        <span>{formatFileSize(file.size)}</span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                                 <button
