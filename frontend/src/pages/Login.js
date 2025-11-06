@@ -63,7 +63,7 @@ function Login() {
             }}
           >
             <div className="Login_container">
-              <img className="Login_logoimage" alt="teamlogo" src="/testlogo.png" />
+              <img className="Login_logoimage" alt="teamlogo" src="/testlogo.png"  style={{ "--dur": "2.8s" }} />
             </div>
             <form onSubmit={handleSubmit}>
               <div className="Login_input">
@@ -101,7 +101,7 @@ function Login() {
                   marginTop: '60px',
                 }}
               >
-                회사명: (주)무한루프 | 대표: 정세준 | 대표 번호: 010-3874-6231 | 메일 문의:
+                회사명: (주)무한루프 | 대표: 정세준 | 대표 번호: 010-1234-1234 | 메일 문의:
                 jeongsejan@gmail.com
               </p>
             </div>
